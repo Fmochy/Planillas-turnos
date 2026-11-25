@@ -133,8 +133,8 @@ table.grid { border-collapse: separate; border-spacing: 0; font-size: 12px; }
 .c-p { background: var(--p) !important; }
 .c-fi { background: var(--fi) !important; color: #fff !important; }
 .c-mt { background: var(--mt) !important; color: #000 !important; }
-.grid tr.lv th.name, .grid tr.lv td.cell:not(.c-t2):not(.c-t4):not(.c-mt):not(.c-v):not(.c-b):not(.c-p):not(.c-fi) { background: var(--lv); }
-.sw.hol { background: var(--hol); color: var(--text); }
+.grid tr.lv th.name, .grid tr.lv td.cell:not(.we):not(.c-t2):not(.c-t4):not(.c-mt):not(.c-v):not(.c-b):not(.c-p):not(.c-fi) { background: var(--lv); }
+.sw.we { background: var(--we); min-height: 16px; }
 .grid td.ov::after {
   content: ""; position: absolute; top: 0; right: 0; border-style: solid; border-width: 0 7px 7px 0;
   border-color: transparent #1d2330 transparent transparent;

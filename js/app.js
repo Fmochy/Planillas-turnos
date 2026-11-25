@@ -106,7 +106,7 @@
     const items = [['M2', 'Terminal 2', 'c-t2'], ['M4', 'Terminal 4', 'c-t4'], ['MT4', 'Mañana-tarde T4', 'c-mt'],
       ['V', 'Vacaciones', 'c-v'], ['B', 'Baja', 'c-b'], ['P', 'Permiso', 'c-p'], ['FI', 'Falta injustificada', 'c-fi']];
     $('#legend').replaceChildren(...items.map(([c, t, k]) => el('span', { class: 'lg' }, el('i', { class: 'sw ' + k, text: c }), t)),
-      el('span', { class: 'lg' }, el('i', { class: 'sw hol', text: 'F' }), 'Festivo'));
+      el('span', { class: 'lg' }, el('i', { class: 'sw we', text: '' }), 'Fin de semana o festivo'));
   }
 
   function renderGrid(y, m) {
@@ -121,10 +121,10 @@
     const t4t = state.settings.t4Target;
     const today = E.dn(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
 
-    const dayClass = (n) => [E.weekday(n) >= 5 ? 'we' : '', hol.has(E.isoOf(n)) ? 'hol' : '', n === today ? 'today' : ''].join(' ');
+    const dayClass = (n) => [E.weekday(n) >= 5 || hol.has(E.isoOf(n)) ? 'we' : '', n === today ? 'today' : ''].join(' ');
     const thead = el('thead', null,
       el('tr', null, el('th', { class: 'name corner', text: `${MONTHS[m]} ${y}` }),
-        days.map((n, i) => el('th', { class: 'day ' + dayClass(n) }, el('div', { class: 'dnum', text: i + 1 }), el('div', { class: 'dwd', text: hol.has(E.isoOf(n)) ? 'F' : WD[E.weekday(n)] }))),
+        days.map((n, i) => el('th', { class: 'day ' + dayClass(n) }, el('div', { class: 'dnum', text: i + 1 }), el('div', { class: 'dwd', text: WD[E.weekday(n)] }))),
         ['HT', 'Horas', 'V', 'B', 'T4'].map((h) => el('th', { class: 'sum', text: h, title: { HT: 'Días trabajados + bajas', T4: 'Días en terminal 4' }[h] || '' }))));
     const tbody = el('tbody');
     for (const g of E.GROUPS) {

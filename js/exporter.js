@@ -38,8 +38,8 @@
     const sumCol = nd + 3;
     const lastCol = sumCol + 4;
     const WD = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
-    const isWe = (n) => E.weekday(n) >= 5;
-    const isHol = (n) => hol.has(E.isoOf(n));
+    // Festivos con el mismo gris que los fines de semana
+    const isWe = (n) => E.weekday(n) >= 5 || hol.has(E.isoOf(n));
 
     ws.getColumn(1).width = 28;
     for (let i = 0; i < nd; i++) ws.getColumn(2 + i).width = 5;
@@ -68,9 +68,9 @@
     ws.mergeCells(2, 1, 3, 1);
     r2.getCell(1).alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
     days.forEach((n, i) => {
-      const f = isHol(n) ? C.headHol : isWe(n) ? C.headWe : C.navy;
+      const f = isWe(n) ? C.headWe : C.navy;
       hc(r2.getCell(2 + i), i + 1, f, 10);
-      hc(r3.getCell(2 + i), isHol(n) ? 'F' : WD[E.weekday(n)], f, 8);
+      hc(r3.getCell(2 + i), WD[E.weekday(n)], f, 8);
     });
     ['HT', 'HORAS', 'V', 'B', 'T4'].forEach((h, k) => {
       hc(r2.getCell(sumCol + k), h, C.sumHead, 9);
@@ -104,7 +104,7 @@
           c.alignment = center;
           c.border = box();
           c.font = { name: FONT, size: 9, bold: !!code, color: { argb: whiteText(code) ? 'FFFFFFFF' : 'FF000000' } };
-          const f = codeFill(code) || (isHol(n) ? C.hol : isWe(n) ? C.we : base);
+          const f = codeFill(code) || (isWe(n) ? C.we : base);
           if (f) c.fill = solid(f);
         });
         const s = E.personSummary(sched, p.id, days, state.settings.hoursPerShift || 8);
@@ -159,7 +159,7 @@
     lt.value = 'LEYENDA'; lt.font = { name: FONT, bold: true, size: 10, color: { argb: C.strong } };
     const legend = [['M2', 'Terminal 2 (M2 · T2 · N2)', C.t2], ['M4', 'Terminal 4 (M4 · T4 · N4 · MT4)', C.t4],
       ['V', 'Vacaciones', C.v], ['B', 'Baja', C.b], ['P', 'Permiso', C.p], ['FI', 'Falta injustificada', C.fi],
-      ['', 'Lunes a viernes', C.lv], ['F', 'Festivo', C.hol]];
+      ['', 'Lunes a viernes', C.lv], ['', 'Fin de semana o festivo', C.we]];
     legend.forEach(([code, txt, f], i) => {
       const row = ws.getRow(r + Math.floor(i / 2));
       const col = 2 + (i % 2) * 9;
