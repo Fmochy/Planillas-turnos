@@ -93,6 +93,7 @@
           <h2 id="sumTitle">Resumen anual</h2>
           <div class="row-form">
             <label>Cupo de vacaciones por defecto <input type="number" id="vacQuota" min="0" max="60"></label>
+            <button type="button" id="sumExcel" class="ghost">Descargar resumen en Excel</button>
           </div>
         </div>
         <p class="muted small">Vacaciones gastadas y pendientes, bajas y reparto de la Terminal 4 en el año que estás viendo. Puedes cambiar el cupo de una persona concreta en su casilla. En «% T4» se marcan en naranja quienes se alejan más de 10 puntos de la media de su turno.</p>
@@ -164,7 +165,7 @@
   <div id="yearsDlg" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="yearsTitle">
     <form id="yearsForm" class="card modal-box">
       <h2 id="yearsTitle">Descargar años completos</h2>
-      <p class="muted small">Un solo archivo Excel con una pestaña por cada mes.</p>
+      <p class="muted small">Un solo archivo Excel con una pestaña de resumen por año (días, horas, vacaciones, bajas…) y una pestaña por cada mes.</p>
       <div class="row-form">
         <label>Desde <input type="number" id="yearFrom" min="2024" max="2100" required></label>
         <label>Hasta <input type="number" id="yearTo" min="2024" max="2100" required></label>

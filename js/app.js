@@ -218,9 +218,10 @@
     const hol = new Set(state.holidays);
     const thead = el('thead', null, el('tr', null, el('th', { class: 'name corner', text: `${p.name} · ${y}` }),
       Array.from({ length: 31 }, (_, i) => el('th', { class: 'day' }, el('div', { class: 'dnum', text: i + 1 }))),
-      ['Trab.', 'V', 'B', 'T4'].map((h) => el('th', { class: 'sum', text: h }))));
+      ['Trab.', 'Horas', 'V', 'B', 'P', 'FI', 'T4'].map((h) => el('th', { class: 'sum', text: h }))));
     const tbody = el('tbody');
-    const tot = { w: 0, v: 0, b: 0, t4: 0 };
+    const keys = ['work', 'horasTrab', 'v', 'b', 'p', 'fi', 't4'];
+    const tot = Object.fromEntries(keys.map((k) => [k, 0]));
     for (let m = 0; m < 12; m++) {
       const nd = E.daysInMonth(y, m);
       const tr = el('tr', null, el('th', { class: 'name', text: MONTHS[m] }));
@@ -233,14 +234,12 @@
         const ov = state.overrides[p.id] && state.overrides[p.id][E.isoOf(n)] != null;
         tr.append(el('td', { class: `cell ${cellClass(code)} ${we ? 'we' : ''} ${ov ? 'ov' : ''}`, text: code, 'data-pid': p.id, 'data-n': n, tabindex: 0, title: `${WD[E.weekday(n)]} ${d}/${m + 1}` }));
       }
-      const s = E.personSummary(sched, p.id, days, state.settings.hoursPerShift);
-      const w = s.ht - s.b;
-      tot.w += w; tot.v += s.v; tot.b += s.b; tot.t4 += s.t4;
-      [w, s.v, s.b, s.t4].forEach((v) => tr.append(el('td', { class: 'sum', text: v })));
+      const s = E.personSummary(sched, p.id, days, state.settings.hoursPerShift, hol);
+      keys.forEach((k) => { tot[k] += s[k]; tr.append(el('td', { class: 'sum', text: s[k] })); });
       tbody.append(tr);
     }
     tbody.append(el('tr', { class: 'tot strong sep' }, el('th', { class: 'name', text: 'Total' }), el('td', { colspan: 31 }),
-      [tot.w, tot.v, tot.b, tot.t4].map((v) => el('td', { class: 'sum', text: v }))));
+      keys.map((k) => el('td', { class: 'sum', text: tot[k] }))));
     $('#grid').className = 'grid pyear';
     $('#grid').replaceChildren(thead, tbody);
   }
@@ -258,22 +257,26 @@
     let first = state.genStart;
     for (const pid in state.history) for (const iso in state.history[pid]) first = Math.min(first, E.dnOfIso(iso));
     $('#sumNote').textContent = first > E.dn(y, 0, 1) ? `Ojo: solo hay datos desde el ${fmt(first)}. Lo anterior no está en la web, así que las vacaciones gastadas antes de esa fecha no se cuentan.` : '';
-    const rows = active.map((p) => {
-      const s = E.personSummary(sched, p.id, days, state.settings.hoursPerShift);
-      const worked = s.ht - s.b;
-      return { p, s, worked, pct: worked ? (100 * s.t4) / worked : 0 };
-    });
-    const head = el('thead', null, el('tr', null, ['Persona', 'Días trab.', 'Vacaciones', 'Cupo', 'Quedan', 'Bajas', 'Días T4', '% T4', ''].map((h) => el('th', { text: h }))));
+    const rows = E.yearSummary(state, sched, y);
+    const cols = [
+      ['Persona', ''], ['Días trab.', 'Días trabajados'], ['Horas trab.', 'Horas realmente trabajadas'],
+      ['Horas cómputo', 'Como en el Excel: días trabajados + bajas, por las horas del turno'],
+      ['Vacaciones', 'Días de vacaciones marcados (V)'], ['Cupo', 'Días de vacaciones al año'], ['Quedan', 'Vacaciones pendientes'],
+      ['Bajas', 'Días de baja (B)'], ['Permisos', 'Días de permiso (P)'], ['Faltas', 'Faltas injustificadas (FI)'],
+      ['Finde / fest.', 'Días trabajados en sábado, domingo o festivo'], ['Días T4', ''], ['% T4', ''], ['', ''],
+    ];
+    const head = el('thead', null, el('tr', null, cols.map(([h, t]) => el('th', { text: h, title: t || null }))));
+    const totals = { work: 0, horasTrab: 0, horas: 0, v: 0, b: 0, p: 0, fi: 0, fest: 0, t4: 0 };
+    rows.forEach((r) => Object.keys(totals).forEach((k) => { totals[k] += r.s[k]; }));
     const body = el('tbody');
     for (const g of E.GROUPS) {
       const gr = rows.filter((r) => r.p.group === g);
       if (!gr.length) continue;
-      const rot = gr.filter((r) => r.p.type === 'rot' && r.worked > 0);
+      const rot = gr.filter((r) => r.p.type === 'rot' && r.s.work > 0);
       const avg = rot.length ? rot.reduce((a, r) => a + r.pct, 0) / rot.length : 0;
-      body.append(el('tr', { class: 'section s-' + g }, el('th', { colspan: 9, text: `${E.GROUP_NAMES[g]}${rot.length ? ` · media T4 ${avg.toFixed(0)} %` : ''}` })));
+      body.append(el('tr', { class: 'section s-' + g }, el('th', { colspan: cols.length, text: `${E.GROUP_NAMES[g]}${rot.length ? ` · media T4 ${avg.toFixed(0)} %` : ''}` })));
       gr.forEach((r) => {
-        const quota = r.p.vacQuota != null ? r.p.vacQuota : quotaDef;
-        const left = quota - r.s.v;
+        const { quota, left } = r;
         const qi = el('input', { type: 'number', min: 0, max: 60, value: quota, class: 'qin' + (r.p.vacQuota != null ? ' custom' : ''), 'aria-label': `Cupo de ${r.p.name}` });
         qi.addEventListener('change', () => {
           const v = parseInt(qi.value, 10);
@@ -285,18 +288,30 @@
         const bar = el('span', { class: 'bar' }, el('i', { style: `width:${Math.min(100, r.pct).toFixed(0)}%` }));
         body.append(el('tr', null,
           el('td', null, r.p.name, isLv ? el('small', { class: 'tag', text: 'L-V' }) : null),
-          el('td', { class: 'num', text: r.worked }),
+          el('td', { class: 'num', text: r.s.work }),
+          el('td', { class: 'num', text: r.s.horasTrab }),
+          el('td', { class: 'num muted', text: r.s.horas }),
           el('td', { class: 'num', text: r.s.v }),
           el('td', null, qi),
           el('td', { class: 'num ' + (left < 0 ? 'neg' : left <= 3 ? 'low' : ''), text: left }),
           el('td', { class: 'num', text: r.s.b }),
+          el('td', { class: 'num', text: r.s.p }),
+          el('td', { class: 'num', text: r.s.fi }),
+          el('td', { class: 'num', text: r.s.fest }),
           el('td', { class: 'num', text: isLv ? '—' : r.s.t4 }),
           el('td', { class: 'num ' + (off ? 'off' : ''), text: isLv ? '—' : `${r.pct.toFixed(0)} %` }),
           el('td', null, isLv ? '' : bar)));
       });
     }
-    $('#yearSummary').replaceChildren(head, body);
+    const n = (v) => el('td', { class: 'num', text: v });
+    const foot = el('tfoot', null, el('tr', null, el('th', { text: `Total (${rows.length} personas)` }),
+      n(totals.work), n(totals.horasTrab), n(totals.horas), n(totals.v), el('td'), el('td'), n(totals.b), n(totals.p), n(totals.fi), n(totals.fest), n(totals.t4), el('td'), el('td')));
+    $('#yearSummary').replaceChildren(head, body, foot);
   }
+  $('#sumExcel').addEventListener('click', () => {
+    const { y } = currentView();
+    doExport([], `Resumen ${y}.xlsx`, [y]);
+  });
   $('#vacQuota').addEventListener('change', () => {
     const v = parseInt($('#vacQuota').value, 10);
     if (Number.isFinite(v) && v >= 0) { state.settings.vacQuota = v; save(); render(); }
@@ -566,11 +581,12 @@
   });
   $('#resetAll').addEventListener('click', () => { if (confirm('¿Borrar toda la plantilla, ausencias y ajustes de este navegador?')) { state = defaults(); save(); tab = 'cuadrante'; render(); } });
 
-  async function doExport(months, filename) {
-    const last = months[months.length - 1];
-    months.forEach(({ y, m }) => ensureGenStart(y, m));
+  async function doExport(months, filename, summaryYears) {
+    const lastY = Math.max(...months.map((x) => x.y), ...(summaryYears || []));
+    const last = summaryYears && summaryYears.length ? { y: lastY, m: 11 } : months[months.length - 1];
+    if (months.length) ensureGenStart(months[0].y, months[0].m); else ensureGenStart(lastY, 0);
     const sched = schedule(E.dn(last.y, last.m, E.daysInMonth(last.y, last.m)));
-    try { await window.Exporter.exportMonths(state, sched, months, MONTHS, filename); }
+    try { await window.Exporter.exportMonths(state, sched, months, MONTHS, filename, summaryYears || []); }
     catch (err) { console.error(err); alert('No se pudo generar el Excel: ' + err.message); }
   }
   $('#exportMonth').addEventListener('click', () => { const { y, m } = currentView(); doExport([{ y, m }], `Cuadrante ${MONTHS[m]} ${y}.xlsx`); });
@@ -597,7 +613,8 @@
     for (let y = a; y <= b; y++) for (let m = 0; m < 12; m++) months.push({ y, m });
     closeYears();
     toast('Preparando el Excel…');
-    await doExport(months, a === b ? `Cuadrante ${a}.xlsx` : `Cuadrante ${a}-${b}.xlsx`);
+    const years = []; for (let y = a; y <= b; y++) years.push(y);
+    await doExport(months, a === b ? `Cuadrante ${a}.xlsx` : `Cuadrante ${a}-${b}.xlsx`, years);
   });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeYears(); });
   $('#printBtn').addEventListener('click', () => { tab = 'cuadrante'; render(); setTimeout(() => window.print(), 50); });

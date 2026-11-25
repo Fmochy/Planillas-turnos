@@ -107,7 +107,7 @@
           const f = codeFill(code) || (isWe(n) ? C.we : base);
           if (f) c.fill = solid(f);
         });
-        const s = E.personSummary(sched, p.id, days, state.settings.hoursPerShift || 8);
+        const s = E.personSummary(sched, p.id, days, state.settings.hoursPerShift || 8, hol);
         [s.ht, s.horas, s.v, s.b, s.t4].forEach((v, k) => {
           const c = pr.getCell(sumCol + k);
           c.value = v; c.alignment = center; c.border = box(); c.fill = solid(C.sumBody);
@@ -178,11 +178,85 @@
     };
   }
 
-  async function exportMonths(state, sched, months, monthNames, filename) {
+  // Pestaña de resumen anual: días, horas, vacaciones, bajas, permisos, faltas y T4 por persona
+  function addSummary(wb, state, sched, y) {
+    const ws = wb.addWorksheet(`Resumen ${y}`, {
+      views: [{ state: 'frozen', xSplit: 1, ySplit: 2, showGridLines: false }],
+      properties: { tabColor: { argb: C.strong } },
+    });
+    const cols = [
+      ['Persona', 30], ['Días trabajados', 11], ['Horas trabajadas', 11], ['Horas cómputo', 11], ['Vacaciones', 11],
+      ['Cupo', 8], ['Quedan', 8], ['Bajas', 8], ['Permisos', 9], ['Faltas', 8], ['Finde / festivos', 11], ['Días T4', 9], ['% T4', 8],
+    ];
+    cols.forEach(([, w], i) => { ws.getColumn(i + 1).width = w; });
+    ws.mergeCells(1, 1, 1, cols.length);
+    const t = ws.getCell(1, 1);
+    t.value = `RESUMEN ANUAL ${y}`;
+    t.font = { name: FONT, size: 15, bold: true, color: { argb: C.navyText } };
+    t.fill = solid(C.navy); t.alignment = { vertical: 'middle', indent: 1 };
+    ws.getRow(1).height = 30;
+    const hr = ws.getRow(2); hr.height = 30;
+    cols.forEach(([h], i) => {
+      const c = hr.getCell(i + 1);
+      c.value = h; c.fill = solid(C.navy); c.border = box('FF8497B0');
+      c.font = { name: FONT, bold: true, size: 10, color: { argb: C.navyText } };
+      c.alignment = { horizontal: i ? 'center' : 'left', vertical: 'middle', wrapText: true, indent: i ? 0 : 1 };
+    });
+    const rows = E.yearSummary(state, sched, y);
+    let r = 3;
+    const tot = { work: 0, horasTrab: 0, horas: 0, v: 0, b: 0, p: 0, fi: 0, fest: 0, t4: 0 };
+    for (const g of E.GROUPS) {
+      const gr = rows.filter((x) => x.p.group === g);
+      if (!gr.length) continue;
+      const row = ws.getRow(r++); row.height = 18;
+      for (let c = 1; c <= cols.length; c++) row.getCell(c).fill = solid({ M: C.secM, T: C.secT, N: C.secN }[g]);
+      row.getCell(1).value = E.GROUP_NAMES[g];
+      row.getCell(1).font = { name: FONT, bold: true, size: 11, color: { argb: g === 'N' ? 'FFFFFFFF' : 'FF000000' } };
+      row.getCell(1).alignment = { vertical: 'middle', indent: 1 };
+      gr.forEach((x, idx) => {
+        const s = x.s; const lv = x.p.type === 'lv';
+        Object.keys(tot).forEach((k) => { tot[k] += s[k]; });
+        const vals = [lv ? `${x.p.name}  (L-V)` : x.p.name, s.work, s.horasTrab, s.horas, s.v, x.quota, x.left, s.b, s.p, s.fi, s.fest,
+          lv ? '—' : s.t4, lv ? '—' : Math.round(x.pct) / 100];
+        const pr = ws.getRow(r++); pr.height = 17;
+        const base = lv ? C.lv : idx % 2 ? C.zebra : null;
+        vals.forEach((v, i) => {
+          const c = pr.getCell(i + 1);
+          c.value = v; c.border = box();
+          c.font = { name: FONT, size: 10, bold: i === 0 && lv };
+          c.alignment = i ? center : { vertical: 'middle', indent: 1 };
+          if (base) c.fill = solid(base);
+        });
+        pr.getCell(13).numFmt = '0%';
+        const left = pr.getCell(7);
+        if (x.left < 0) { left.fill = solid('FFF8CBAD'); left.font = { name: FONT, size: 10, bold: true, color: { argb: 'FFC00000' } }; }
+        else if (x.left <= 3) left.fill = solid('FFFFE699');
+      });
+    }
+    const fr = ws.getRow(r); fr.height = 20;
+    const fv = [`TOTAL (${rows.length} personas)`, tot.work, tot.horasTrab, tot.horas, tot.v, '', '', tot.b, tot.p, tot.fi, tot.fest, tot.t4, ''];
+    fv.forEach((v, i) => {
+      const c = fr.getCell(i + 1);
+      c.value = v; c.fill = solid(C.totHead); c.font = { name: FONT, bold: true, size: 10 };
+      c.alignment = i ? center : { vertical: 'middle', indent: 1 };
+      c.border = { ...box(), top: side(C.strong, 'medium') };
+    });
+    const note = ws.getRow(r + 2).getCell(1);
+    note.value = 'Horas cómputo = (días trabajados + bajas) × horas por turno, como en el cuadrante original. Finde / festivos = días trabajados en sábado, domingo o festivo.';
+    note.font = { name: FONT, size: 9, italic: true, color: { argb: 'FF595959' } };
+    ws.pageSetup = { orientation: 'landscape', paperSize: 9, fitToPage: true, fitToWidth: 1, fitToHeight: 0, horizontalCentered: true };
+  }
+
+  async function exportMonths(state, sched, months, monthNames, filename, summaryYears) {
     const wb = new root.ExcelJS.Workbook();
     wb.creator = 'Planillas de turnos';
     wb.created = new Date();
-    months.forEach(({ y, m }) => addMonth(wb, state, sched, y, m, monthNames[m]));
+    const years = [...new Set([...(summaryYears || [])])].sort();
+    years.forEach((y) => {
+      addSummary(wb, state, sched, y);
+      months.filter((x) => x.y === y).forEach(({ m }) => addMonth(wb, state, sched, y, m, monthNames[m]));
+    });
+    months.filter((x) => !years.includes(x.y)).forEach(({ y, m }) => addMonth(wb, state, sched, y, m, monthNames[m]));
     const buf = await wb.xlsx.writeBuffer();
     const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const a = document.createElement('a');

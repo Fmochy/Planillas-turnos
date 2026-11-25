@@ -157,16 +157,36 @@
   }
 
   // Resumen mensual por persona: HT (días trabajados + bajas), horas, V, B, días en T4
-  function personSummary(sched, pid, days, hoursPerShift) {
-    let work = 0, v = 0, b = 0, t4 = 0;
+  // work: días trabajados; horasTrab: horas realmente trabajadas; ht/horas: cómputo del Excel (incluye bajas)
+  // fest: días trabajados en sábado, domingo o festivo (si se pasa el conjunto de festivos)
+  function personSummary(sched, pid, days, hoursPerShift, holidays) {
+    let work = 0, v = 0, b = 0, p = 0, fi = 0, t4 = 0, fest = 0;
     for (const n of days) {
       const c = sched.code(pid, n);
-      if (isShift(c)) { work++; if (terminalOf(c) === '4' && !c.startsWith('MT')) t4++; }
-      else if (c === 'V') v++;
+      if (isShift(c)) {
+        work++;
+        if (terminalOf(c) === '4' && !c.startsWith('MT')) t4++;
+        if (weekday(n) >= 5 || (holidays && holidays.has(isoOf(n)))) fest++;
+      } else if (c === 'V') v++;
       else if (c === 'B') b++;
+      else if (c === 'P') p++;
+      else if (c === 'FI') fi++;
     }
     const ht = work + b;
-    return { ht, horas: ht * hoursPerShift, v, b, t4 };
+    return { work, horasTrab: work * hoursPerShift, ht, horas: ht * hoursPerShift, v, b, p, fi, t4, fest };
+  }
+
+  // Resumen de un año para toda la plantilla activa
+  function yearSummary(state, sched, y) {
+    const days = [];
+    for (let n = dn(y, 0, 1); n <= dn(y, 11, 31); n++) days.push(n);
+    const hol = new Set(state.holidays || []);
+    const quotaDef = state.settings.vacQuota != null ? state.settings.vacQuota : 23;
+    return state.people.filter((p) => p.active !== false).map((p) => {
+      const s = personSummary(sched, p.id, days, state.settings.hoursPerShift || 8, hol);
+      const quota = p.vacQuota != null ? p.vacQuota : quotaDef;
+      return { p, s, quota, left: quota - s.v, pct: s.work ? (100 * s.t4) / s.work : 0 };
+    });
   }
 
   // Totales diarios como en el Excel
@@ -188,7 +208,7 @@
   const api = {
     DAY, REF, GROUPS, GROUP_NAMES, SHIFT_CODES, ABSENCE_CODES, ALL_CODES,
     dn, fromDn, weekday, isoOf, dnOfIso, mod, daysInMonth, isOffCycle, shiftGroups, terminalOf, isShift,
-    guardLetter, compute, personSummary, dayTotals,
+    guardLetter, compute, personSummary, yearSummary, dayTotals,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Engine = api;

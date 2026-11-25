@@ -242,7 +242,7 @@ table.staff { border-collapse: collapse; width: 100%; min-width: 760px; }
 .grid.single td { height: 30px; }
 
 /* Resumen anual */
-.card.wide { max-width: 1100px; }
+.card.wide { max-width: none; }
 table.summary td.num { text-align: right; font-variant-numeric: tabular-nums; width: 80px; }
 table.summary .tag { margin-left: 6px; font-size: 10px; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
 table.summary td.neg { color: var(--warn); font-weight: 700; }
@@ -252,3 +252,8 @@ table.summary .qin { width: 64px; text-align: right; }
 table.summary .qin.custom { border-color: var(--accent); }
 .bar { display: inline-block; width: 120px; height: 8px; border-radius: 4px; background: var(--we); overflow: hidden; vertical-align: middle; }
 .bar i { display: block; height: 100%; background: #e0c200; }
+
+table.summary { min-width: 1100px; }
+table.summary th { white-space: nowrap; }
+table.summary tfoot th, table.summary tfoot td { font-weight: 700; border-top: 2px solid var(--line); border-bottom: none; }
+table.summary td.num.muted { color: var(--muted); }
