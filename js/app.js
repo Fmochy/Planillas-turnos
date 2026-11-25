@@ -21,7 +21,7 @@
   // ---------- Estado ----------
   const defaults = () => ({
     people: [], history: {}, overrides: {}, holidays: [], genStart: null,
-    settings: { t4Target: { M: 3, T: 2, N: 2 }, hoursPerShift: 8, guardLetters: ['M', 'C'] },
+    settings: { t4Target: { M: 3, T: 2, N: 2 }, hoursPerShift: 8, guardLetters: ['M', 'C'], vacQuota: 22, maxVac: { M: 3, T: 2, N: 2 } },
     view: null, sourceMonths: [], holidaysVersion: HOLIDAYS_VERSION,
   });
   // Festivos oficiales de la Comunidad de Madrid (regionales + locales de Madrid capital).
@@ -46,7 +46,7 @@
       const raw = localStorage.getItem(KEY);
       if (raw) {
         const s = JSON.parse(raw); const d = defaults();
-        const st = migrate({ ...d, holidaysVersion: 1, ...s, settings: { ...d.settings, ...s.settings, t4Target: { ...d.settings.t4Target, ...(s.settings || {}).t4Target } } });
+        const st = migrate({ ...d, holidaysVersion: 1, ...s, settings: { ...d.settings, ...s.settings, t4Target: { ...d.settings.t4Target, ...(s.settings || {}).t4Target }, maxVac: { ...d.settings.maxVac, ...(s.settings || {}).maxVac } } });
         try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) { /* sin almacenamiento */ }
         return st;
       }
@@ -89,7 +89,8 @@
     if (!$('#monthSel').options.length) MONTHS.forEach((n, i) => $('#monthSel').append(el('option', { value: i, text: n })));
     $('#monthSel').value = m; $('#yearSel').value = y;
     $('#view-' + tab).classList.remove('hidden');
-    if (tab === 'cuadrante') renderGrid(y, m);
+    if (tab === 'cuadrante') { renderFilter(); if (personFilter && personMode === 'anio') renderPersonYear(y); else renderGrid(y, m); }
+    if (tab === 'resumen') renderSummary(y);
     if (tab === 'personal') renderStaff(y, m);
     if (tab === 'ausencias') renderAbsences(y, m);
     if (tab === 'ajustes') renderSettings();
@@ -127,9 +128,12 @@
         days.map((n, i) => el('th', { class: 'day ' + dayClass(n) }, el('div', { class: 'dnum', text: i + 1 }), el('div', { class: 'dwd', text: WD[E.weekday(n)] }))),
         ['HT', 'Horas', 'V', 'B', 'T4'].map((h) => el('th', { class: 'sum', text: h, title: { HT: 'Días trabajados + bajas', T4: 'Días en terminal 4' }[h] || '' }))));
     const tbody = el('tbody');
+    const only = personFilter ? active.find((p) => p.id === personFilter) : null;
+    $('#grid').className = 'grid' + (only ? ' single' : '');
     for (const g of E.GROUPS) {
+      if (only && only.group !== g) continue;
       tbody.append(el('tr', { class: 'section s-' + g }, el('th', { class: 'name', text: E.GROUP_NAMES[g] }), el('td', { colspan: nd }), el('td', { class: 'sum', colspan: 5 })));
-      const members = active.filter((p) => p.group === g);
+      const members = active.filter((p) => p.group === g && (!only || p === only));
       if (!members.length) tbody.append(el('tr', null, el('th', { class: 'name muted', text: 'Sin personal' }), el('td', { colspan: nd }), el('td', { class: 'sum', colspan: 5 })));
       for (const p of members) {
         const tr = el('tr', { class: p.type === 'lv' ? 'lv' : '' }, el('th', { class: 'name', title: p.type === 'lv' ? 'Lunes a viernes' : '6-3' },
@@ -152,6 +156,7 @@
     days.forEach((n) => { const l = E.guardLetter(state.settings, n); gtr.append(el('td', { class: 'g ' + (l === state.settings.guardLetters[0] ? 'ga' : 'gb'), text: l })); });
     gtr.append(el('td', { colspan: 5 }));
     tbody.append(gtr);
+    if (only) { $('#grid').replaceChildren(thead, tbody); return; }
     // Totales
     const totals = days.map((n) => E.dayTotals(sched, active, n));
     const tline = (label, fn, cls, warnFn) => {
@@ -168,8 +173,132 @@
     tline('Terminal T4', (t) => t.T4);
     tline('M4 / T4 / N4', (t) => `${t.M4}·${t.T4s}·${t.N4}`, 'mini', (t) => t.M4 < t4t.M || t.T4s < t4t.T || t.N4 < t4t.N);
     tline('Total técnicos', (t) => t.total, 'sep strong');
+    // Personas de vacaciones a la vez por turno
+    const mv = state.settings.maxVac;
+    const vacs = days.map((n) => vacCount(sched, active, n));
+    const vtr = el('tr', { class: 'tot mini' }, el('th', { class: 'name', text: 'Vacaciones M / T / N', title: 'En rojo: se supera el máximo de Ajustes' }));
+    vacs.forEach((v, i) => tr2(vtr, `${v.M}·${v.T}·${v.N}`, (v.M > mv.M || v.T > mv.T || v.N > mv.N ? 'warn ' : '') + dayClass(days[i])));
+    vtr.append(el('td', { colspan: 5 }));
+    tbody.append(vtr);
     $('#grid').replaceChildren(thead, tbody);
   }
+
+  const tr2 = (tr, text, cls) => tr.append(el('td', { class: cls, text }));
+  function vacCount(sched, people, n) {
+    const c = { M: 0, T: 0, N: 0 };
+    for (const p of people) if (sched.code(p.id, n) === 'V') c[p.group]++;
+    return c;
+  }
+
+  // ---------- Ver una persona ----------
+  let personFilter = '';
+  let personMode = 'mes';
+  function renderFilter() {
+    const sel = $('#personFilter');
+    const active = state.people.filter((p) => p.active !== false);
+    if (personFilter && !active.some((p) => p.id === personFilter)) personFilter = '';
+    sel.replaceChildren(el('option', { value: '', text: 'Todo el personal' }),
+      ...E.GROUPS.map((g) => el('optgroup', { label: E.GROUP_NAMES[g] }, active.filter((p) => p.group === g).map((p) => el('option', { value: p.id, text: p.name })))));
+    sel.value = personFilter;
+    $('#personMode').classList.toggle('hidden', !personFilter);
+    $$('#personMode button').forEach((b) => b.classList.toggle('active', b.dataset.mode === personMode));
+    const p = active.find((x) => x.id === personFilter);
+    $('#personInfo').textContent = p ? (p.type === 'lv' ? `Lunes a viernes · ${p.fixedCode}` : `6-3 · ${E.GROUP_NAMES[p.group].toLowerCase()}`) : '';
+  }
+  $('#personFilter').addEventListener('change', (e) => { personFilter = e.target.value; render(); });
+  $('#personMode').addEventListener('click', (e) => { const b = e.target.closest('button[data-mode]'); if (b) { personMode = b.dataset.mode; render(); } });
+
+  function renderPersonYear(y) {
+    renderLegend();
+    const p = state.people.find((x) => x.id === personFilter);
+    ensureGenStart(y, 0);
+    const sched = schedule(E.dn(y, 11, 31));
+    const hol = new Set(state.holidays);
+    const thead = el('thead', null, el('tr', null, el('th', { class: 'name corner', text: `${p.name} · ${y}` }),
+      Array.from({ length: 31 }, (_, i) => el('th', { class: 'day' }, el('div', { class: 'dnum', text: i + 1 }))),
+      ['Trab.', 'V', 'B', 'T4'].map((h) => el('th', { class: 'sum', text: h }))));
+    const tbody = el('tbody');
+    const tot = { w: 0, v: 0, b: 0, t4: 0 };
+    for (let m = 0; m < 12; m++) {
+      const nd = E.daysInMonth(y, m);
+      const tr = el('tr', null, el('th', { class: 'name', text: MONTHS[m] }));
+      const days = [];
+      for (let d = 1; d <= 31; d++) {
+        if (d > nd) { tr.append(el('td', { class: 'na' })); continue; }
+        const n = E.dn(y, m, d); days.push(n);
+        const code = sched.code(p.id, n);
+        const we = E.weekday(n) >= 5 || hol.has(E.isoOf(n));
+        const ov = state.overrides[p.id] && state.overrides[p.id][E.isoOf(n)] != null;
+        tr.append(el('td', { class: `cell ${cellClass(code)} ${we ? 'we' : ''} ${ov ? 'ov' : ''}`, text: code, 'data-pid': p.id, 'data-n': n, tabindex: 0, title: `${WD[E.weekday(n)]} ${d}/${m + 1}` }));
+      }
+      const s = E.personSummary(sched, p.id, days, state.settings.hoursPerShift);
+      const w = s.ht - s.b;
+      tot.w += w; tot.v += s.v; tot.b += s.b; tot.t4 += s.t4;
+      [w, s.v, s.b, s.t4].forEach((v) => tr.append(el('td', { class: 'sum', text: v })));
+      tbody.append(tr);
+    }
+    tbody.append(el('tr', { class: 'tot strong sep' }, el('th', { class: 'name', text: 'Total' }), el('td', { colspan: 31 }),
+      [tot.w, tot.v, tot.b, tot.t4].map((v) => el('td', { class: 'sum', text: v }))));
+    $('#grid').className = 'grid pyear';
+    $('#grid').replaceChildren(thead, tbody);
+  }
+
+  // ---------- Resumen anual ----------
+  function renderSummary(y) {
+    ensureGenStart(y, 0);
+    const sched = schedule(E.dn(y, 11, 31));
+    const days = []; for (let n = E.dn(y, 0, 1); n <= E.dn(y, 11, 31); n++) days.push(n);
+    const active = state.people.filter((p) => p.active !== false);
+    const quotaDef = state.settings.vacQuota;
+    $('#sumTitle').textContent = `Resumen anual ${y}`;
+    $('#vacQuota').value = quotaDef;
+    // Desde cuándo hay datos
+    let first = state.genStart;
+    for (const pid in state.history) for (const iso in state.history[pid]) first = Math.min(first, E.dnOfIso(iso));
+    $('#sumNote').textContent = first > E.dn(y, 0, 1) ? `Ojo: solo hay datos desde el ${fmt(first)}. Lo anterior no está en la web, así que las vacaciones gastadas antes de esa fecha no se cuentan.` : '';
+    const rows = active.map((p) => {
+      const s = E.personSummary(sched, p.id, days, state.settings.hoursPerShift);
+      const worked = s.ht - s.b;
+      return { p, s, worked, pct: worked ? (100 * s.t4) / worked : 0 };
+    });
+    const head = el('thead', null, el('tr', null, ['Persona', 'Días trab.', 'Vacaciones', 'Cupo', 'Quedan', 'Bajas', 'Días T4', '% T4', ''].map((h) => el('th', { text: h }))));
+    const body = el('tbody');
+    for (const g of E.GROUPS) {
+      const gr = rows.filter((r) => r.p.group === g);
+      if (!gr.length) continue;
+      const rot = gr.filter((r) => r.p.type === 'rot' && r.worked > 0);
+      const avg = rot.length ? rot.reduce((a, r) => a + r.pct, 0) / rot.length : 0;
+      body.append(el('tr', { class: 'section s-' + g }, el('th', { colspan: 9, text: `${E.GROUP_NAMES[g]}${rot.length ? ` · media T4 ${avg.toFixed(0)} %` : ''}` })));
+      gr.forEach((r) => {
+        const quota = r.p.vacQuota != null ? r.p.vacQuota : quotaDef;
+        const left = quota - r.s.v;
+        const qi = el('input', { type: 'number', min: 0, max: 60, value: quota, class: 'qin' + (r.p.vacQuota != null ? ' custom' : ''), 'aria-label': `Cupo de ${r.p.name}` });
+        qi.addEventListener('change', () => {
+          const v = parseInt(qi.value, 10);
+          if (!Number.isFinite(v) || v === quotaDef) delete r.p.vacQuota; else r.p.vacQuota = v;
+          save(); renderSummary(y);
+        });
+        const isLv = r.p.type === 'lv';
+        const off = !isLv && Math.abs(r.pct - avg) > 10;
+        const bar = el('span', { class: 'bar' }, el('i', { style: `width:${Math.min(100, r.pct).toFixed(0)}%` }));
+        body.append(el('tr', null,
+          el('td', null, r.p.name, isLv ? el('small', { class: 'tag', text: 'L-V' }) : null),
+          el('td', { class: 'num', text: r.worked }),
+          el('td', { class: 'num', text: r.s.v }),
+          el('td', null, qi),
+          el('td', { class: 'num ' + (left < 0 ? 'neg' : left <= 3 ? 'low' : ''), text: left }),
+          el('td', { class: 'num', text: r.s.b }),
+          el('td', { class: 'num', text: isLv ? '—' : r.s.t4 }),
+          el('td', { class: 'num ' + (off ? 'off' : ''), text: isLv ? '—' : `${r.pct.toFixed(0)} %` }),
+          el('td', null, isLv ? '' : bar)));
+      });
+    }
+    $('#yearSummary').replaceChildren(head, body);
+  }
+  $('#vacQuota').addEventListener('change', () => {
+    const v = parseInt($('#vacQuota').value, 10);
+    if (Number.isFinite(v) && v >= 0) { state.settings.vacQuota = v; save(); render(); }
+  });
 
   // ---------- Selector de casilla ----------
   let pickTarget = null;
@@ -325,6 +454,23 @@
       if (!onlyWork || E.isShift(sched.code(pid, n))) { state.overrides[pid][iso] = code; count++; }
       else if (saved[iso] != null && !E.ABSENCE_CODES.includes(saved[iso])) state.overrides[pid][iso] = saved[iso];
     }
+    if (code === 'V' && count) {
+      const after = schedule(b);
+      const members = state.people.filter((x) => x.active !== false && x.group === p.group);
+      const max = state.settings.maxVac[p.group];
+      const clash = [];
+      for (let n = a; n <= b; n++) {
+        if (after.code(pid, n) !== 'V') continue;
+        const who = members.filter((x) => after.code(x.id, n) === 'V');
+        if (who.length > max) clash.push(`${fmt(n)}: ${who.map((x) => x.name).join(', ')}`);
+      }
+      if (clash.length) {
+        const list = clash.slice(0, 12).join('\n') + (clash.length > 12 ? `\n… y ${clash.length - 12} días más` : '');
+        if (!confirm(`Con estas vacaciones habría más de ${max} persona(s) de ${E.GROUP_NAMES[p.group].toLowerCase()} de vacaciones a la vez:\n\n${list}\n\n¿Guardarlas igualmente?`)) {
+          state.overrides[pid] = saved; save(); render(); toast('No se han guardado las vacaciones'); return;
+        }
+      }
+    }
     save(); render(); toast(`${count} día(s) marcados como ${code} para ${p.name}`);
   });
 
@@ -333,6 +479,7 @@
     const s = state.settings;
     $('#t4M').value = s.t4Target.M; $('#t4T').value = s.t4Target.T; $('#t4N').value = s.t4Target.N; $('#hours').value = s.hoursPerShift;
     $('#guardA').value = s.guardLetters[0]; $('#guardB').value = s.guardLetters[1];
+    $('#maxVM').value = s.maxVac.M; $('#maxVT').value = s.maxVac.T; $('#maxVN').value = s.maxVac.N;
     const t = new Date(); const today = E.dn(t.getFullYear(), t.getMonth(), t.getDate());
     $('#guardNow').textContent = `Esta semana: ${E.guardLetter(s, today)}`;
     $('#holidays').value = state.holidays.slice().sort().map((iso) => fmt(E.dnOfIso(iso))).join('\n');
@@ -344,6 +491,9 @@
     const s = state.settings;
     s.t4Target = { M: num('#t4M', 3), T: num('#t4T', 2), N: num('#t4N', 2) };
     s.hoursPerShift = num('#hours', 8) || 8; save(); toast('Guardado');
+  }));
+  ['#maxVM', '#maxVT', '#maxVN'].forEach((id) => $(id).addEventListener('change', () => {
+    state.settings.maxVac = { M: num('#maxVM', 3), T: num('#maxVT', 2), N: num('#maxVN', 2) }; save(); toast('Guardado');
   }));
   ['#guardA', '#guardB'].forEach((id) => $(id).addEventListener('change', () => {
     state.settings.guardLetters = [$('#guardA').value.trim().toUpperCase() || 'M', $('#guardB').value.trim().toUpperCase() || 'C']; save(); renderSettings();

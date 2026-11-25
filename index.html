@@ -25,6 +25,7 @@
   <nav class="tabs" id="tabs">
     <button data-tab="cuadrante" class="active">Cuadrante</button>
     <button data-tab="ausencias">Vacaciones y bajas</button>
+    <button data-tab="resumen">Resumen anual</button>
     <button data-tab="personal">Personal</button>
     <button data-tab="ajustes">Ajustes</button>
   </nav>
@@ -47,6 +48,14 @@
     </section>
 
     <section id="view-cuadrante" class="view">
+      <div class="toolbar">
+        <label>Ver <select id="personFilter" aria-label="Persona"></select></label>
+        <div class="seg hidden" id="personMode" role="group" aria-label="Periodo">
+          <button type="button" data-mode="mes">Mes</button>
+          <button type="button" data-mode="anio">Año completo</button>
+        </div>
+        <span id="personInfo" class="muted small"></span>
+      </div>
       <div class="legend" id="legend"></div>
       <div class="table-wrap"><table class="grid" id="grid"></table></div>
       <p class="muted small hint">Pulsa cualquier casilla para cambiarla a mano. Las casillas cambiadas llevan una esquina marcada; elige «Automático» para devolverlas al patrón.</p>
@@ -78,6 +87,20 @@
       </div>
     </section>
 
+    <section id="view-resumen" class="view hidden">
+      <div class="card wide">
+        <div class="card-head">
+          <h2 id="sumTitle">Resumen anual</h2>
+          <div class="row-form">
+            <label>Cupo de vacaciones por defecto <input type="number" id="vacQuota" min="0" max="60"></label>
+          </div>
+        </div>
+        <p class="muted small">Vacaciones gastadas y pendientes, bajas y reparto de la Terminal 4 en el año que estás viendo. Puedes cambiar el cupo de una persona concreta en su casilla. En «% T4» se marcan en naranja quienes se alejan más de 10 puntos de la media de su turno.</p>
+        <p class="muted small" id="sumNote"></p>
+        <div class="table-wrap"><table class="staff summary" id="yearSummary"></table></div>
+      </div>
+    </section>
+
     <section id="view-personal" class="view hidden">
       <div class="card">
         <div class="card-head">
@@ -98,6 +121,15 @@
           <label>Tarde (T4) <input type="number" min="0" max="20" id="t4T"></label>
           <label>Noche (N4) <input type="number" min="0" max="20" id="t4N"></label>
           <label>Horas por turno <input type="number" min="1" max="24" id="hours"></label>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Vacaciones</h2>
+        <p class="muted small">Máximo de personas de vacaciones a la vez en cada turno. Si al marcar vacaciones se supera, la web avisa antes de guardarlas y el día sale en rojo en el cuadrante.</p>
+        <div class="row-form">
+          <label>Mañana <input type="number" min="0" max="30" id="maxVM"></label>
+          <label>Tarde <input type="number" min="0" max="30" id="maxVT"></label>
+          <label>Noche <input type="number" min="0" max="30" id="maxVN"></label>
         </div>
       </div>
       <div class="card">
