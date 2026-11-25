@@ -16,7 +16,7 @@ Web sencilla para generar el cuadrante mensual de técnicos con el ciclo **6-3**
 6. **Excel del mes** descarga el mes que estás viendo. **Excel por años…** descarga uno o varios años completos en un solo archivo, con una pestaña por mes.
 7. **Imprimir** saca solo las personas, los días y las guardias, en una página A4 apaisada.
 8. **Ver una persona:** en el Cuadrante, el desplegable «Ver» enseña solo a esa persona. Puedes verla en el mes o en el **año completo** (un mes por fila) e imprimirla para enviársela.
-9. **Resumen anual:** días trabajados, vacaciones gastadas y pendientes sobre un cupo (general o por persona), bajas, y días y % en T4. En naranja aparece quien se aleja más de 10 puntos de la media de su turno.
+9. **Resumen anual:** días trabajados, vacaciones gastadas y pendientes sobre un cupo (23 días por defecto, o uno propio por persona), bajas, y días y % en T4. En naranja aparece quien se aleja más de 10 puntos de la media de su turno.
 10. **Solapes de vacaciones:** en **Ajustes** se fija el máximo de personas de vacaciones a la vez por turno. Si al marcar vacaciones se supera, la web avisa antes de guardarlas, y la fila «Vacaciones M / T / N» del cuadrante sale en rojo ese día.
 
 ## Reglas que aplica

@@ -21,8 +21,8 @@
   // ---------- Estado ----------
   const defaults = () => ({
     people: [], history: {}, overrides: {}, holidays: [], genStart: null,
-    settings: { t4Target: { M: 3, T: 2, N: 2 }, hoursPerShift: 8, guardLetters: ['M', 'C'], vacQuota: 22, maxVac: { M: 3, T: 2, N: 2 } },
-    view: null, sourceMonths: [], holidaysVersion: HOLIDAYS_VERSION,
+    settings: { t4Target: { M: 3, T: 2, N: 2 }, hoursPerShift: 8, guardLetters: ['M', 'C'], vacQuota: 23, maxVac: { M: 3, T: 2, N: 2 } },
+    view: null, sourceMonths: [], holidaysVersion: HOLIDAYS_VERSION, quotaVersion: 2,
   });
   // Festivos oficiales de la Comunidad de Madrid (regionales + locales de Madrid capital).
   // 2027: Decreto 82/2026 (BOCM 01/10/2026); locales: San Isidro y la Almudena.
@@ -38,6 +38,8 @@
       s.holidays = [...new Set([...(s.holidays || []).filter((h) => !years.includes(h.slice(0, 4))), ...madridList()])].sort();
       s.holidaysVersion = HOLIDAYS_VERSION;
     }
+    // El cupo por defecto pasó de 22 a 23 días (cupo real de la plantilla)
+    if ((s.quotaVersion || 1) < 2) { if (s.settings.vacQuota == null || s.settings.vacQuota === 22) s.settings.vacQuota = 23; s.quotaVersion = 2; }
     return s;
   }
   let state = load();
@@ -46,7 +48,7 @@
       const raw = localStorage.getItem(KEY);
       if (raw) {
         const s = JSON.parse(raw); const d = defaults();
-        const st = migrate({ ...d, holidaysVersion: 1, ...s, settings: { ...d.settings, ...s.settings, t4Target: { ...d.settings.t4Target, ...(s.settings || {}).t4Target }, maxVac: { ...d.settings.maxVac, ...(s.settings || {}).maxVac } } });
+        const st = migrate({ ...d, holidaysVersion: 1, quotaVersion: 1, ...s, settings: { ...d.settings, ...s.settings, t4Target: { ...d.settings.t4Target, ...(s.settings || {}).t4Target }, maxVac: { ...d.settings.maxVac, ...(s.settings || {}).maxVac } } });
         try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) { /* sin almacenamiento */ }
         return st;
       }
@@ -559,7 +561,7 @@
   });
   $('#importJson').addEventListener('change', async (e) => {
     const f = e.target.files[0]; e.target.value = ''; if (!f) return;
-    try { const s = JSON.parse(await f.text()); if (!Array.isArray(s.people)) throw new Error('formato'); state = migrate({ ...defaults(), holidaysVersion: 1, ...s }); save(); render(); toast('Copia restaurada'); }
+    try { const s = JSON.parse(await f.text()); if (!Array.isArray(s.people)) throw new Error('formato'); state = migrate({ ...defaults(), holidaysVersion: 1, quotaVersion: 1, ...s, settings: { ...defaults().settings, ...s.settings } }); save(); render(); toast('Copia restaurada'); }
     catch (err) { alert('Ese archivo no es una copia válida.'); }
   });
   $('#resetAll').addEventListener('click', () => { if (confirm('¿Borrar toda la plantilla, ausencias y ajustes de este navegador?')) { state = defaults(); save(); tab = 'cuadrante'; render(); } });
