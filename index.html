@@ -17,7 +17,7 @@
     </div>
     <div class="actions">
       <button id="exportMonth">Excel del mes</button>
-      <button id="exportYear" class="ghost">Excel del año</button>
+      <button id="exportYear" class="ghost">Excel por años…</button>
       <button id="printBtn" class="ghost">Imprimir</button>
     </div>
   </header>
@@ -128,6 +128,26 @@
       </div>
     </section>
   </main>
+
+  <div id="yearsDlg" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="yearsTitle">
+    <form id="yearsForm" class="card modal-box">
+      <h2 id="yearsTitle">Descargar años completos</h2>
+      <p class="muted small">Un solo archivo Excel con una pestaña por cada mes.</p>
+      <div class="row-form">
+        <label>Desde <input type="number" id="yearFrom" min="2024" max="2100" required></label>
+        <label>Hasta <input type="number" id="yearTo" min="2024" max="2100" required></label>
+      </div>
+      <div class="quick">
+        <button type="button" class="ghost small" data-years="0,0">Este año</button>
+        <button type="button" class="ghost small" data-years="1,1">Año siguiente</button>
+        <button type="button" class="ghost small" data-years="0,1">Este y el siguiente</button>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="ghost" id="yearsCancel">Cancelar</button>
+        <button type="submit" class="primary">Descargar</button>
+      </div>
+    </form>
+  </div>
 
   <div id="picker" class="picker hidden" role="dialog" aria-label="Cambiar turno"></div>
   <div id="toast" class="toast hidden"></div>

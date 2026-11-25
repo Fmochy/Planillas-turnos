@@ -13,12 +13,14 @@ Web sencilla para generar el cuadrante mensual de técnicos con el ciclo **6-3**
 3. A partir del mes siguiente, el cuadrante se genera solo. Muévete por los meses con las flechas.
 4. En **Vacaciones y bajas** marca rangos de V, B, P o FI. Por defecto solo se marcan los días que a esa persona le tocaba trabajar. Las bajas no se cubren.
 5. Pulsa cualquier casilla para cambiarla a mano. **Automático** la devuelve al patrón.
-6. **Excel del mes** o **Excel del año** descarga el cuadrante con los colores de siempre.
+6. **Excel del mes** descarga el mes que estás viendo. **Excel por años…** descarga uno o varios años completos en un solo archivo, con una pestaña por mes.
+7. **Imprimir** saca solo las personas, los días y las guardias, en una página A4 apaisada.
 
 ## Reglas que aplica
 
 - **6-3:** cada persona rotativa trabaja 6 días y libra 3, sin cortes entre meses. El ciclo se guarda como «primer día libre», y se puede cambiar en **Personal**.
-- **L-V:** trabaja de lunes a viernes, menos festivos, siempre con el mismo código.
+- **L-V:** trabaja de lunes a viernes, menos festivos, siempre con el mismo código. Su fila sale en azul claro.
+- **Festivos:** el calendario oficial de 2027 de la Comunidad de Madrid ya viene cargado (Decreto 82/2026, BOCM 01/10/2026), junto con los locales de Madrid capital (San Isidro y la Almudena). Se pueden editar en **Ajustes**.
 - **Terminales:** cada día van a la T4 3 personas de mañana (M4), 2 de tarde (T4) y 2 de noche (N4), y el resto a la T2. MT4 va aparte. Las cifras se cambian en **Ajustes**. Quien ya está en T4 sigue en T4 mientras dura su bloque. Para cubrir los huecos se elige a quien menos T4 ha hecho en las últimas 4 semanas, así el reparto queda equilibrado.
 - **Guardias:** cambian cada semana, de lunes a domingo.
 - **Totales:** HT son los días trabajados más las bajas, como en el Excel original. Horas = HT × 8.

@@ -22,13 +22,34 @@
   const defaults = () => ({
     people: [], history: {}, overrides: {}, holidays: [], genStart: null,
     settings: { t4Target: { M: 3, T: 2, N: 2 }, hoursPerShift: 8, guardLetters: ['M', 'C'] },
-    view: null, sourceMonths: [],
+    view: null, sourceMonths: [], holidaysVersion: HOLIDAYS_VERSION,
   });
+  // Festivos oficiales de la Comunidad de Madrid (regionales + locales de Madrid capital).
+  // 2027: Decreto 82/2026 (BOCM 01/10/2026); locales: San Isidro y la Almudena.
+  const MADRID_HOLIDAYS = {
+    2027: ['01-01', '01-06', '03-19', '03-25', '03-26', '05-01', '05-15', '08-16', '10-12', '11-01', '11-09', '12-06', '12-08', '12-25'],
+  };
+  const HOLIDAYS_VERSION = 2;
+  function madridList() { return Object.entries(MADRID_HOLIDAYS).flatMap(([y, ds]) => ds.map((d) => `${y}-${d}`)); }
+  function migrate(s) {
+    if ((s.holidaysVersion || 1) < HOLIDAYS_VERSION) {
+      const years = Object.keys(MADRID_HOLIDAYS);
+      // Los años con calendario oficial se sustituyen enteros; el resto se conserva
+      s.holidays = [...new Set([...(s.holidays || []).filter((h) => !years.includes(h.slice(0, 4))), ...madridList()])].sort();
+      s.holidaysVersion = HOLIDAYS_VERSION;
+    }
+    return s;
+  }
   let state = load();
   function load() {
     try {
       const raw = localStorage.getItem(KEY);
-      if (raw) { const s = JSON.parse(raw); const d = defaults(); return { ...d, ...s, settings: { ...d.settings, ...s.settings, t4Target: { ...d.settings.t4Target, ...(s.settings || {}).t4Target } } }; }
+      if (raw) {
+        const s = JSON.parse(raw); const d = defaults();
+        const st = migrate({ ...d, holidaysVersion: 1, ...s, settings: { ...d.settings, ...s.settings, t4Target: { ...d.settings.t4Target, ...(s.settings || {}).t4Target } } });
+        try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) { /* sin almacenamiento */ }
+        return st;
+      }
     } catch (e) { /* sin almacenamiento */ }
     return defaults();
   }
@@ -107,11 +128,11 @@
         ['HT', 'Horas', 'V', 'B', 'T4'].map((h) => el('th', { class: 'sum', text: h, title: { HT: 'Días trabajados + bajas', T4: 'Días en terminal 4' }[h] || '' }))));
     const tbody = el('tbody');
     for (const g of E.GROUPS) {
-      tbody.append(el('tr', { class: 'section s-' + g }, el('th', { class: 'name', text: E.GROUP_NAMES[g] }), el('td', { colspan: nd + 5 })));
+      tbody.append(el('tr', { class: 'section s-' + g }, el('th', { class: 'name', text: E.GROUP_NAMES[g] }), el('td', { colspan: nd }), el('td', { class: 'sum', colspan: 5 })));
       const members = active.filter((p) => p.group === g);
-      if (!members.length) tbody.append(el('tr', null, el('th', { class: 'name muted', text: 'Sin personal' }), el('td', { colspan: nd + 5 })));
+      if (!members.length) tbody.append(el('tr', null, el('th', { class: 'name muted', text: 'Sin personal' }), el('td', { colspan: nd }), el('td', { class: 'sum', colspan: 5 })));
       for (const p of members) {
-        const tr = el('tr', null, el('th', { class: 'name', title: p.type === 'lv' ? 'Lunes a viernes' : '6-3' },
+        const tr = el('tr', { class: p.type === 'lv' ? 'lv' : '' }, el('th', { class: 'name', title: p.type === 'lv' ? 'Lunes a viernes' : '6-3' },
           el('span', { text: p.name }), p.type === 'lv' ? el('small', { class: 'tag', text: 'L-V' }) : null));
         days.forEach((n) => {
           const iso = E.isoOf(n);
@@ -351,6 +372,7 @@
       s.settings = { ...state.settings, guardLetters: r.guardLetters };
       s.people = r.people; s.history = r.history; s.genStart = r.genStart; s.sourceMonths = r.sourceMonths;
       s.holidays = [...new Set([...(state.holidays || []), ...r.holidays, ...defaultHolidays()])].sort();
+      s.holidaysVersion = HOLIDAYS_VERSION;
       const f = E.fromDn(r.genStart); s.view = { y: f.y, m: f.m };
       state = s; save(); tab = 'cuadrante'; render();
       const lv = r.people.filter((p) => p.type === 'lv').length;
@@ -359,11 +381,11 @@
       console.error(err); alert('No he podido leer el Excel: ' + err.message);
     }
   }
-  // Festivos nacionales de fecha fija de los próximos años (los demás, en Ajustes)
+  // Calendario oficial de Madrid donde lo hay; para otros años, los nacionales de fecha fija
   function defaultHolidays() {
-    const y0 = new Date().getFullYear(); const out = [];
-    for (let y = y0; y <= y0 + 2; y++) ['01-01', '01-06', '05-01', '08-15', '10-12', '11-01', '12-06', '12-08', '12-25'].forEach((d) => out.push(`${y}-${d}`));
-    return out;
+    const y0 = new Date().getFullYear(); const out = madridList();
+    for (let y = y0; y <= y0 + 2; y++) if (!MADRID_HOLIDAYS[y]) ['01-01', '01-06', '05-01', '08-15', '10-12', '11-01', '12-06', '12-08', '12-25'].forEach((d) => out.push(`${y}-${d}`));
+    return [...new Set(out)].sort();
   }
   $$('.importFile').forEach((inp) => inp.addEventListener('change', () => { if (inp.files[0]) importExcel(inp.files[0]); inp.value = ''; }));
   $('#startEmpty').addEventListener('click', () => {
@@ -378,7 +400,7 @@
   });
   $('#importJson').addEventListener('change', async (e) => {
     const f = e.target.files[0]; e.target.value = ''; if (!f) return;
-    try { const s = JSON.parse(await f.text()); if (!Array.isArray(s.people)) throw new Error('formato'); state = { ...defaults(), ...s }; save(); render(); toast('Copia restaurada'); }
+    try { const s = JSON.parse(await f.text()); if (!Array.isArray(s.people)) throw new Error('formato'); state = migrate({ ...defaults(), holidaysVersion: 1, ...s }); save(); render(); toast('Copia restaurada'); }
     catch (err) { alert('Ese archivo no es una copia válida.'); }
   });
   $('#resetAll').addEventListener('click', () => { if (confirm('¿Borrar toda la plantilla, ausencias y ajustes de este navegador?')) { state = defaults(); save(); tab = 'cuadrante'; render(); } });
@@ -391,7 +413,32 @@
     catch (err) { console.error(err); alert('No se pudo generar el Excel: ' + err.message); }
   }
   $('#exportMonth').addEventListener('click', () => { const { y, m } = currentView(); doExport([{ y, m }], `Cuadrante ${MONTHS[m]} ${y}.xlsx`); });
-  $('#exportYear').addEventListener('click', () => { const { y } = currentView(); doExport(MONTHS.map((_, m) => ({ y, m })), `Cuadrante ${y}.xlsx`); });
+  // Descarga por años: una pestaña por mes
+  const closeYears = () => $('#yearsDlg').classList.add('hidden');
+  $('#exportYear').addEventListener('click', () => {
+    const { y } = currentView();
+    $('#yearFrom').value = y; $('#yearTo').value = y;
+    $('#yearsDlg').classList.remove('hidden'); $('#yearFrom').focus();
+  });
+  $('#yearsCancel').addEventListener('click', closeYears);
+  $('#yearsDlg').addEventListener('click', (e) => { if (e.target.id === 'yearsDlg') closeYears(); });
+  $$('#yearsDlg [data-years]').forEach((b) => b.addEventListener('click', () => {
+    const [a, z] = b.dataset.years.split(',').map(Number); const y = currentView().y;
+    $('#yearFrom').value = y + a; $('#yearTo').value = y + z;
+  }));
+  $('#yearsForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    let a = parseInt($('#yearFrom').value, 10), b = parseInt($('#yearTo').value, 10);
+    if (!(a > 1999 && b > 1999)) return;
+    if (b < a) [a, b] = [b, a];
+    if (b - a > 4) { alert('Como máximo 5 años de una vez.'); return; }
+    const months = [];
+    for (let y = a; y <= b; y++) for (let m = 0; m < 12; m++) months.push({ y, m });
+    closeYears();
+    toast('Preparando el Excel…');
+    await doExport(months, a === b ? `Cuadrante ${a}.xlsx` : `Cuadrante ${a}-${b}.xlsx`);
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeYears(); });
   $('#printBtn').addEventListener('click', () => { tab = 'cuadrante'; render(); setTimeout(() => window.print(), 50); });
 
   // ---------- Navegación ----------
