@@ -5,7 +5,7 @@ Web sencilla para generar el cuadrante mensual de técnicos con el ciclo **6-3**
 ## Cómo se usa
 
 1. Abre `index.html` en el navegador, o la dirección de GitHub Pages si está activada.
-2. Pulsa **Importar Excel…** y elige tu cuadrante actual. La web lee los dos últimos meses y deduce:
+2. Pulsa **Importar Excel…** y elige tu cuadrante actual. La web importa el año completo del último mes del Excel. Con los dos últimos meses deduce:
    - en qué turno está cada persona (mañana, tarde o noche);
    - quién va en el 6-3 y en qué punto del ciclo está, y quién es fijo de lunes a viernes (y con qué turno: M2, T2, MT4, N2…);
    - los festivos (los días laborables en los que no trabajó el personal L-V);

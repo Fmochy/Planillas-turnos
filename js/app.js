@@ -483,7 +483,7 @@
     const t = new Date(); const today = E.dn(t.getFullYear(), t.getMonth(), t.getDate());
     $('#guardNow').textContent = `Esta semana: ${E.guardLetter(s, today)}`;
     $('#holidays').value = state.holidays.slice().sort().map((iso) => fmt(E.dnOfIso(iso))).join('\n');
-    $('#dataInfo').textContent = `${state.people.length} personas. ` + (state.sourceMonths && state.sourceMonths.length ? `Importado de: ${state.sourceMonths.join(', ')}. ` : '') +
+    $('#dataInfo').textContent = `${state.people.length} personas. ` + (state.sourceMonths && state.sourceMonths.length ? `Importado: ${state.sourceMonths[0]} – ${state.sourceMonths[state.sourceMonths.length - 1]} (${state.sourceMonths.length} meses). ` : '') +
       (state.genStart != null ? `Generación automática desde el ${fmt(state.genStart)}.` : '');
   }
   const num = (id, def) => { const v = parseInt($(id).value, 10); return Number.isFinite(v) && v >= 0 ? v : def; };
@@ -516,17 +516,26 @@
     try {
       const wb = new window.ExcelJS.Workbook();
       await wb.xlsx.load(await file.arrayBuffer());
-      const r = window.Importer.buildState(wb, 2);
-      if (state.people.length && !confirm('Esto sustituye la plantilla, el historial y los cambios manuales por lo que hay en el Excel. ¿Continuar?')) return;
+      const r = window.Importer.buildState(wb);
+      if (state.people.length && !confirm('Esto sustituye la plantilla y el historial por lo que hay en el Excel. Las vacaciones y cambios que hayas marcado en la web a partir del mes siguiente al último del Excel se conservan. ¿Continuar?')) return;
       const s = defaults();
       s.settings = { ...state.settings, guardLetters: r.guardLetters };
       s.people = r.people; s.history = r.history; s.genStart = r.genStart; s.sourceMonths = r.sourceMonths;
+      // Conservar lo marcado a mano en fechas posteriores al Excel
+      r.people.forEach((p) => {
+        const old = state.overrides[p.id]; if (!old) return;
+        const keep = {};
+        for (const iso in old) if (E.dnOfIso(iso) >= r.genStart) keep[iso] = old[iso];
+        if (Object.keys(keep).length) s.overrides[p.id] = keep;
+      });
+      // Conservar cupos de vacaciones personalizados
+      r.people.forEach((p) => { const o = state.people.find((x) => x.id === p.id); if (o && o.vacQuota != null) p.vacQuota = o.vacQuota; });
       s.holidays = [...new Set([...(state.holidays || []), ...r.holidays, ...defaultHolidays()])].sort();
       s.holidaysVersion = HOLIDAYS_VERSION;
       const f = E.fromDn(r.genStart); s.view = { y: f.y, m: f.m };
       state = s; save(); tab = 'cuadrante'; render();
       const lv = r.people.filter((p) => p.type === 'lv').length;
-      toast(`Importadas ${r.people.length} personas (${lv} L-V) de ${r.sourceMonths.join(' y ')}. Revisa la pestaña Personal.`);
+      toast(`Importadas ${r.people.length} personas (${lv} L-V) (${r.sourceMonths.length} meses: ${r.sourceMonths[0]} – ${r.sourceMonths[r.sourceMonths.length - 1]}). Revisa la pestaña Personal.`);
     } catch (err) {
       console.error(err); alert('No he podido leer el Excel: ' + err.message);
     }

@@ -57,10 +57,9 @@
     const overrides = state.overrides || {};
     const genStart = state.genStart != null ? state.genStart : untilDn;
 
-    // Inicio: 28 días antes de genStart para sembrar el historial de terminales.
+    // Empieza en el primer día importado (o en genStart si no hay historial).
     let histStart = genStart;
     for (const pid in history) for (const iso in history[pid]) histStart = Math.min(histStart, dnOfIso(iso));
-    histStart = Math.max(histStart, genStart - 40);
 
     const result = {}; // result[pid] = Map(n -> code)
     const autoRes = {};

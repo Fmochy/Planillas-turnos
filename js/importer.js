@@ -51,13 +51,17 @@
     return { title: ws.name, start, ndays, rows, guard };
   }
 
-  function buildState(wb, monthsToUse) {
+  // Importa el año completo del último mes del Excel (como mínimo los dos últimos meses).
+  // El ciclo 6-3 y el tipo de cada persona se deducen solo de los dos últimos meses.
+  function buildState(wb) {
     const sheets = [];
     wb.eachSheet((ws) => { const s = parseSheet(ws); if (s && s.rows.length) sheets.push(s); });
     if (!sheets.length) throw new Error('No encuentro ninguna hoja de cuadrante (la celda A1 de cada mes debe ser una fecha).');
     sheets.sort((a, b) => a.start - b.start);
-    const used = sheets.slice(-(monthsToUse || 2));
-    const latest = used[used.length - 1];
+    const recent = sheets.slice(-2);
+    const latest = recent[recent.length - 1];
+    const yearStart = E.dn(E.fromDn(latest.start).y, 0, 1);
+    const used = sheets.filter((s) => s.start >= Math.min(yearStart, recent[0].start));
 
     // Personas: las que aparecen en el mes más reciente (con algún dato)
     const people = [];
@@ -77,10 +81,11 @@
       if (!byKey[id]) return;
       history[id] = history[id] || {};
       samples[id] = samples[id] || [];
+      const isRecent = recent.includes(s);
       r.codes.forEach((c, i) => {
         const n = s.start + i;
         if (c) history[id][E.isoOf(n)] = c;
-        samples[id].push({ n, c });
+        if (isRecent) samples[id].push({ n, c });
       });
     }));
 
