@@ -3,3 +3,4 @@
 *.xls
 *.json
 !package.json
+!manifest.webmanifest

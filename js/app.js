@@ -653,5 +653,29 @@
   $('#yearSel').addEventListener('change', () => { const y = parseInt($('#yearSel').value, 10); if (y >= 2000 && y <= 2100) setView(y, currentView().m); });
   $('#tabs').addEventListener('click', (e) => { const b = e.target.closest('button[data-tab]'); if (b) { tab = b.dataset.tab; render(); } });
 
+  // ---------- Uso sin internet ----------
+  const isFile = location.protocol === 'file:';
+  if (isFile) {
+    // Ya es la versión local: no tiene sentido ofrecer instalarla ni descargarla
+    $('#offlineCard').classList.add('hidden');
+  } else {
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+    let deferred = null;
+    const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    if (standalone) $('#installHelp').textContent = 'Ya la estás usando como aplicación instalada.';
+    else if (ios) $('#installHelp').textContent = 'En iPhone o iPad: abre esta página en Safari, pulsa el botón Compartir y elige «Añadir a pantalla de inicio».';
+    else $('#installHelp').textContent += ' Si no ves el botón, usa el menú del navegador: «Instalar aplicación» (Chrome / Edge) o «Añadir a pantalla de inicio» (Android).';
+    window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferred = e; $('#installBtn').classList.remove('hidden'); });
+    $('#installBtn').addEventListener('click', async () => {
+      if (!deferred) return;
+      deferred.prompt();
+      const { outcome } = await deferred.userChoice;
+      deferred = null; $('#installBtn').classList.add('hidden');
+      if (outcome === 'accepted') toast('Aplicación instalada');
+    });
+    window.addEventListener('appinstalled', () => { $('#installHelp').textContent = 'Instalada. Ya la puedes abrir desde su icono.'; });
+  }
+
   render();
 })();

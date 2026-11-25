@@ -29,6 +29,14 @@ Web sencilla para generar el cuadrante mensual de técnicos con el ciclo **6-3**
 - **Guardias:** cambian cada semana, de lunes a domingo.
 - **Totales:** HT son los días trabajados más las bajas, como en el Excel original. Horas = HT × 8.
 
+## Usarla sin internet
+
+- **Instalarla como aplicación:** en la web, ve a **Ajustes → Usar sin internet → Instalar**. También puedes usar el menú del navegador: «Instalar aplicación» en Chrome o Edge, o «Añadir a pantalla de inicio» en Android y en iPhone (desde Safari). Queda un icono y funciona sin conexión. Cuando hay internet se actualiza sola.
+- **Un solo archivo:** descarga `dist/planillas-turnos.html` desde **Ajustes** y ábrelo con doble clic. Lleva todo dentro, también la librería de Excel. No se actualiza solo.
+- **Desde el código:** descarga el repositorio (*Code → Download ZIP*) y abre `index.html`.
+
+Después de cambiar el código hay que regenerar el archivo único con `python3 tools/build_single.py`. Los iconos se generan con `python3 tools/make_icons.py`.
+
 ## Datos y privacidad
 
 Todo se guarda en el `localStorage` de tu navegador. No se envía nada a ningún servidor. Desde **Ajustes → Descargar copia de seguridad** puedes guardar un `.json` para pasarlo a otro ordenador o navegador.
@@ -40,4 +48,6 @@ El `.gitignore` impide subir `.xlsx` y `.json` al repositorio, porque llevan los
 - `js/engine.js`: el motor del cuadrante (ciclo, terminales, guardias y totales).
 - `js/importer.js`: lee el Excel.
 - `js/exporter.js`: genera el `.xlsx`.
+- `sw.js`, `manifest.webmanifest`, `icons/`: instalación como aplicación y uso sin conexión.
+- `dist/planillas-turnos.html`: la aplicación en un solo archivo (generado).
 - `lib/exceljs.min.js`: [ExcelJS](https://github.com/exceljs/exceljs) 4.4.0 (licencia MIT), incluida para que funcione sin internet.

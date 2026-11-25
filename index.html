@@ -4,6 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Planillas de turnos</title>
+  <meta name="theme-color" content="#1f3864">
+  <!-- web-only -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" href="icons/favicon.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <!-- /web-only -->
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
@@ -148,6 +154,23 @@
         <p class="muted small">El personal L-V no trabaja estos días. Escribe una fecha por línea (dd/mm/aaaa). Revisa cada año los festivos de la Comunidad y los locales.</p>
         <textarea id="holidays" rows="8"></textarea>
         <div><button id="saveHolidays" class="primary">Guardar festivos</button> <span id="holMsg" class="muted small"></span></div>
+      </div>
+      <div class="card" id="offlineCard">
+        <h2>Usar sin internet</h2>
+        <p class="muted small">La aplicación no necesita servidor: todo se hace en tu ordenador y los datos se quedan en él.</p>
+        <div class="offline-opts">
+          <div class="opt" id="optInstall">
+            <strong>Instalar como aplicación</strong>
+            <p class="muted small" id="installHelp">Queda un icono en el escritorio o en el móvil y funciona sin conexión. Se actualiza sola cuando hay internet.</p>
+            <button type="button" id="installBtn" class="primary hidden">Instalar</button>
+          </div>
+          <div class="opt" id="optFile">
+            <strong>Descargar en un solo archivo</strong>
+            <p class="muted small">Un archivo .html que se abre con doble clic en cualquier navegador, sin instalar nada. Puedes guardarlo en un USB o enviarlo por correo. No se actualiza solo: descárgalo otra vez cuando haya cambios.</p>
+            <a class="file-btn" id="singleLink" href="dist/planillas-turnos.html" download="planillas-turnos.html">Descargar planillas-turnos.html</a>
+          </div>
+        </div>
+        <p class="muted small">Ojo: cada navegador guarda sus propios datos. Para llevarlos a otro sitio usa «Descargar copia de seguridad» y «Restaurar copia» aquí abajo, o importa el Excel otra vez.</p>
       </div>
       <div class="card">
         <h2>Datos</h2>
