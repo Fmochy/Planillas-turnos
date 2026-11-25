@@ -1,0 +1,5 @@
+# Nunca subir cuadrantes reales ni copias de seguridad (llevan nombres del personal)
+*.xlsx
+*.xls
+*.json
+!package.json

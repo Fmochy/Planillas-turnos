@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Planillas de turnos</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">Planillas de turnos</div>
+    <div class="month-nav" id="monthNav">
+      <button class="icon" id="prevMonth" title="Mes anterior" aria-label="Mes anterior">‹</button>
+      <select id="monthSel" aria-label="Mes"></select>
+      <input type="number" id="yearSel" aria-label="Año" min="2024" max="2100">
+      <button class="icon" id="nextMonth" title="Mes siguiente" aria-label="Mes siguiente">›</button>
+    </div>
+    <div class="actions">
+      <button id="exportMonth">Excel del mes</button>
+      <button id="exportYear" class="ghost">Excel del año</button>
+      <button id="printBtn" class="ghost">Imprimir</button>
+    </div>
+  </header>
+
+  <nav class="tabs" id="tabs">
+    <button data-tab="cuadrante" class="active">Cuadrante</button>
+    <button data-tab="ausencias">Vacaciones y bajas</button>
+    <button data-tab="personal">Personal</button>
+    <button data-tab="ajustes">Ajustes</button>
+  </nav>
+
+  <main>
+    <section id="view-onboarding" class="view hidden">
+      <div class="card onboarding">
+        <h1>Empieza importando tu cuadrante</h1>
+        <p>Sube el Excel que usas ahora. La aplicación lee los dos últimos meses y deduce sola:</p>
+        <ul>
+          <li>quién está en mañana, tarde o noche,</li>
+          <li>quién va en el 6-3 y en qué punto del ciclo está, y quién es fijo de lunes a viernes,</li>
+          <li>los festivos y el turno de guardias (M / C).</li>
+        </ul>
+        <p>A partir del mes siguiente genera el cuadrante automáticamente con la misma proporción de terminales (por defecto 3 en M4, 2 en T4 y 2 en N4 cada día; el resto en T2).</p>
+        <label class="file-btn primary">Importar Excel…<input type="file" accept=".xlsx" class="importFile" hidden></label>
+        <p class="muted small">Los datos se guardan solo en este navegador. Nada se sube a internet.</p>
+        <button class="link" id="startEmpty">Prefiero empezar con la plantilla vacía</button>
+      </div>
+    </section>
+
+    <section id="view-cuadrante" class="view">
+      <div class="legend" id="legend"></div>
+      <div class="table-wrap"><table class="grid" id="grid"></table></div>
+      <p class="muted small hint">Pulsa cualquier casilla para cambiarla a mano. Las casillas cambiadas llevan una esquina marcada; elige «Automático» para devolverlas al patrón.</p>
+    </section>
+
+    <section id="view-ausencias" class="view hidden">
+      <div class="card">
+        <h2>Marcar vacaciones, bajas o permisos</h2>
+        <form id="absForm" class="row-form">
+          <label>Persona <select id="absPerson" required></select></label>
+          <label>Tipo
+            <select id="absType">
+              <option value="V">V · Vacaciones</option>
+              <option value="B">B · Baja</option>
+              <option value="P">P · Permiso</option>
+              <option value="FI">FI · Falta injustificada</option>
+            </select>
+          </label>
+          <label>Desde <input type="date" id="absFrom" required></label>
+          <label>Hasta <input type="date" id="absTo" required></label>
+          <label class="check"><input type="checkbox" id="absOnlyWork" checked> Solo en días que le toca trabajar</label>
+          <button type="submit" class="primary">Añadir</button>
+        </form>
+        <p class="muted small">Las bajas solo se marcan: no se cubren con otra persona. El resto del cuadrante no cambia, salvo el reparto T2/T4 de sus compañeros para mantener la proporción.</p>
+      </div>
+      <div class="card">
+        <h2>Ausencias registradas</h2>
+        <div id="absList"></div>
+      </div>
+    </section>
+
+    <section id="view-personal" class="view hidden">
+      <div class="card">
+        <div class="card-head">
+          <h2>Personal</h2>
+          <button id="addPerson" class="primary">Añadir persona</button>
+        </div>
+        <p class="muted small">«6-3»: 6 días de trabajo y 3 de descanso. «Primer día libre» es el primer día de cualquiera de sus bloques de 3 libres; con eso basta para fijar su ciclo. «L-V» trabaja de lunes a viernes, excepto festivos, siempre con el mismo turno.</p>
+        <div class="table-wrap"><table class="staff" id="staff"></table></div>
+      </div>
+    </section>
+
+    <section id="view-ajustes" class="view hidden">
+      <div class="card">
+        <h2>Proporción de terminales</h2>
+        <p class="muted small">Cuántas personas rotativas van a la Terminal 4 cada día en cada turno. El resto va a la Terminal 2. MT4 no cuenta aquí.</p>
+        <div class="row-form">
+          <label>Mañana (M4) <input type="number" min="0" max="20" id="t4M"></label>
+          <label>Tarde (T4) <input type="number" min="0" max="20" id="t4T"></label>
+          <label>Noche (N4) <input type="number" min="0" max="20" id="t4N"></label>
+          <label>Horas por turno <input type="number" min="1" max="24" id="hours"></label>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Guardias</h2>
+        <p class="muted small">Se alternan cada semana, de lunes a domingo.</p>
+        <div class="row-form">
+          <label>Letra A <input type="text" maxlength="3" id="guardA"></label>
+          <label>Letra B <input type="text" maxlength="3" id="guardB"></label>
+          <button id="swapGuard" class="ghost" type="button">Intercambiar</button>
+          <span id="guardNow" class="muted"></span>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Festivos</h2>
+        <p class="muted small">El personal L-V no trabaja estos días. Escribe una fecha por línea (dd/mm/aaaa). Revisa cada año los festivos de la Comunidad y los locales.</p>
+        <textarea id="holidays" rows="8"></textarea>
+        <div><button id="saveHolidays" class="primary">Guardar festivos</button> <span id="holMsg" class="muted small"></span></div>
+      </div>
+      <div class="card">
+        <h2>Datos</h2>
+        <div class="row-form">
+          <label class="file-btn">Importar Excel…<input type="file" accept=".xlsx" class="importFile" hidden></label>
+          <button id="exportJson" class="ghost">Descargar copia de seguridad</button>
+          <label class="file-btn ghost">Restaurar copia…<input type="file" accept=".json" id="importJson" hidden></label>
+          <button id="resetAll" class="danger">Borrar todo</button>
+        </div>
+        <p class="muted small" id="dataInfo"></p>
+      </div>
+    </section>
+  </main>
+
+  <div id="picker" class="picker hidden" role="dialog" aria-label="Cambiar turno"></div>
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="lib/exceljs.min.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/importer.js"></script>
+  <script src="js/exporter.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

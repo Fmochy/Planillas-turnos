@@ -1,0 +1,37 @@
+# Planillas de turnos
+
+Web sencilla para generar el cuadrante mensual de técnicos con el ciclo **6-3**. Funciona en el navegador y no necesita instalar nada.
+
+## Cómo se usa
+
+1. Abre `index.html` en el navegador, o la dirección de GitHub Pages si está activada.
+2. Pulsa **Importar Excel…** y elige tu cuadrante actual. La web lee los dos últimos meses y deduce:
+   - en qué turno está cada persona (mañana, tarde o noche);
+   - quién va en el 6-3 y en qué punto del ciclo está, y quién es fijo de lunes a viernes (y con qué turno: M2, T2, MT4, N2…);
+   - los festivos (los días laborables en los que no trabajó el personal L-V);
+   - la alternancia de guardias M / C.
+3. A partir del mes siguiente, el cuadrante se genera solo. Muévete por los meses con las flechas.
+4. En **Vacaciones y bajas** marca rangos de V, B, P o FI. Por defecto solo se marcan los días que a esa persona le tocaba trabajar. Las bajas no se cubren.
+5. Pulsa cualquier casilla para cambiarla a mano. **Automático** la devuelve al patrón.
+6. **Excel del mes** o **Excel del año** descarga el cuadrante con los colores de siempre.
+
+## Reglas que aplica
+
+- **6-3:** cada persona rotativa trabaja 6 días y libra 3, sin cortes entre meses. El ciclo se guarda como «primer día libre», y se puede cambiar en **Personal**.
+- **L-V:** trabaja de lunes a viernes, menos festivos, siempre con el mismo código.
+- **Terminales:** cada día van a la T4 3 personas de mañana (M4), 2 de tarde (T4) y 2 de noche (N4), y el resto a la T2. MT4 va aparte. Las cifras se cambian en **Ajustes**. Quien ya está en T4 sigue en T4 mientras dura su bloque. Para cubrir los huecos se elige a quien menos T4 ha hecho en las últimas 4 semanas, así el reparto queda equilibrado.
+- **Guardias:** cambian cada semana, de lunes a domingo.
+- **Totales:** HT son los días trabajados más las bajas, como en el Excel original. Horas = HT × 8.
+
+## Datos y privacidad
+
+Todo se guarda en el `localStorage` de tu navegador. No se envía nada a ningún servidor. Desde **Ajustes → Descargar copia de seguridad** puedes guardar un `.json` para pasarlo a otro ordenador o navegador.
+El `.gitignore` impide subir `.xlsx` y `.json` al repositorio, porque llevan los nombres del personal.
+
+## Archivos
+
+- `index.html`, `css/styles.css`: la interfaz.
+- `js/engine.js`: el motor del cuadrante (ciclo, terminales, guardias y totales).
+- `js/importer.js`: lee el Excel.
+- `js/exporter.js`: genera el `.xlsx`.
+- `lib/exceljs.min.js`: [ExcelJS](https://github.com/exceljs/exceljs) 4.4.0 (licencia MIT), incluida para que funcione sin internet.
