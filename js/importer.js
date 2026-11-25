@@ -144,7 +144,20 @@
       }
     }
 
-    // Orden dentro de cada grupo: primero L-V, luego rotativos por fase (como en el Excel)
+    // Fecha de alta: primer día con cualquier dato (turno, V, B…) en todas las hojas del Excel
+    const firstDay = {};
+    sheets.forEach((s) => s.rows.forEach((r) => {
+      const id = slug(r.name);
+      if (!byKey[id] || firstDay[id] != null) return;
+      const i = r.codes.findIndex((c) => c);
+      if (i >= 0) firstDay[id] = s.start + i;
+    }));
+    const excelStart = sheets[0].start;
+    people.forEach((p) => {
+      // Si ya estaba el primer día del Excel no sabemos cuándo empezó: se deja sin fecha
+      if (firstDay[p.id] != null && firstDay[p.id] > excelStart + 9) p.startDate = E.isoOf(firstDay[p.id]);
+    });
+
     const genStart = latest.start + latest.ndays;
     return {
       people, history, holidays, guardLetters, genStart,

@@ -101,6 +101,7 @@
         };
         // Lo que dice el patrón para cada persona (antes de ausencias manuales)
         for (const p of members) {
+          if (p.startDate && iso < p.startDate) { assign(p, '', ''); continue; } // aún no había empezado
           const ov = overrides[p.id] && overrides[p.id][iso];
           let auto = '';
           if (p.type === 'lv') {
@@ -184,8 +185,13 @@
     const quotaDef = state.settings.vacQuota != null ? state.settings.vacQuota : 23;
     return state.people.filter((p) => p.active !== false).map((p) => {
       const s = personSummary(sched, p.id, days, state.settings.hoursPerShift || 8, hol);
-      const quota = p.vacQuota != null ? p.vacQuota : quotaDef;
-      return { p, s, quota, left: quota - s.v, pct: s.work ? (100 * s.t4) / s.work : 0 };
+      const quotaBase = p.vacQuota != null ? p.vacQuota : quotaDef;
+      // Cupo proporcional al tiempo en plantilla si empezó durante el año
+      const y0 = dn(y, 0, 1), y1 = dn(y, 11, 31);
+      const st = p.startDate ? dnOfIso(p.startDate) : null;
+      const joined = st != null && st > y0 ? st : null;
+      const quota = joined == null ? quotaBase : joined > y1 ? 0 : Math.round((quotaBase * (y1 - joined + 1)) / (y1 - y0 + 1));
+      return { p, s, quotaBase, quota, joined, left: quota - s.v, pct: s.work ? (100 * s.t4) / s.work : 0 };
     });
   }
 

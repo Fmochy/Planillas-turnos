@@ -185,7 +185,7 @@
       properties: { tabColor: { argb: C.strong } },
     });
     const cols = [
-      ['Persona', 30], ['Días trabajados', 11], ['Horas trabajadas', 11], ['Horas cómputo', 11], ['Vacaciones', 11],
+      ['Persona', 30], ['Alta', 11], ['Días trabajados', 11], ['Horas trabajadas', 11], ['Horas cómputo', 11], ['Vacaciones', 11],
       ['Cupo', 8], ['Quedan', 8], ['Bajas', 8], ['Permisos', 9], ['Faltas', 8], ['Finde / festivos', 11], ['Días T4', 9], ['% T4', 8],
     ];
     cols.forEach(([, w], i) => { ws.getColumn(i + 1).width = w; });
@@ -216,7 +216,7 @@
       gr.forEach((x, idx) => {
         const s = x.s; const lv = x.p.type === 'lv';
         Object.keys(tot).forEach((k) => { tot[k] += s[k]; });
-        const vals = [lv ? `${x.p.name}  (L-V)` : x.p.name, s.work, s.horasTrab, s.horas, s.v, x.quota, x.left, s.b, s.p, s.fi, s.fest,
+        const vals = [lv ? `${x.p.name}  (L-V)` : x.p.name, x.joined != null ? new Date(x.joined * E.DAY) : '', s.work, s.horasTrab, s.horas, s.v, x.quota, x.left, s.b, s.p, s.fi, s.fest,
           lv ? '—' : s.t4, lv ? '—' : Math.round(x.pct) / 100];
         const pr = ws.getRow(r++); pr.height = 17;
         const base = lv ? C.lv : idx % 2 ? C.zebra : null;
@@ -227,14 +227,15 @@
           c.alignment = i ? center : { vertical: 'middle', indent: 1 };
           if (base) c.fill = solid(base);
         });
-        pr.getCell(13).numFmt = '0%';
-        const left = pr.getCell(7);
+        pr.getCell(14).numFmt = '0%';
+        pr.getCell(2).numFmt = 'dd/mm/yyyy';
+        const left = pr.getCell(8);
         if (x.left < 0) { left.fill = solid('FFF8CBAD'); left.font = { name: FONT, size: 10, bold: true, color: { argb: 'FFC00000' } }; }
         else if (x.left <= 3) left.fill = solid('FFFFE699');
       });
     }
     const fr = ws.getRow(r); fr.height = 20;
-    const fv = [`TOTAL (${rows.length} personas)`, tot.work, tot.horasTrab, tot.horas, tot.v, '', '', tot.b, tot.p, tot.fi, tot.fest, tot.t4, ''];
+    const fv = [`TOTAL (${rows.length} personas)`, '', tot.work, tot.horasTrab, tot.horas, tot.v, '', '', tot.b, tot.p, tot.fi, tot.fest, tot.t4, ''];
     fv.forEach((v, i) => {
       const c = fr.getCell(i + 1);
       c.value = v; c.fill = solid(C.totHead); c.font = { name: FONT, bold: true, size: 10 };
@@ -242,7 +243,7 @@
       c.border = { ...box(), top: side(C.strong, 'medium') };
     });
     const note = ws.getRow(r + 2).getCell(1);
-    note.value = 'Horas cómputo = (días trabajados + bajas) × horas por turno, como en el cuadrante original. Finde / festivos = días trabajados en sábado, domingo o festivo.';
+    note.value = 'Horas cómputo = (días trabajados + bajas) × horas por turno, como en el cuadrante original. Finde / festivos = días trabajados en sábado, domingo o festivo. Si alguien empezó durante el año (columna Alta), su cupo de vacaciones es proporcional.';
     note.font = { name: FONT, size: 9, italic: true, color: { argb: 'FF595959' } };
     ws.pageSetup = { orientation: 'landscape', paperSize: 9, fitToPage: true, fitToWidth: 1, fitToHeight: 0, horizontalCentered: true };
   }

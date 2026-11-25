@@ -25,6 +25,7 @@ Web sencilla para generar el cuadrante mensual de técnicos con el ciclo **6-3**
 - **L-V:** trabaja de lunes a viernes, menos festivos, siempre con el mismo código. Su fila sale en azul claro.
 - **Festivos:** el calendario oficial de 2027 de la Comunidad de Madrid ya viene cargado (Decreto 82/2026, BOCM 01/10/2026), junto con los locales de Madrid capital (San Isidro y la Almudena). Se pueden editar en **Ajustes**.
 - **Terminales:** cada día van a la T4 3 personas de mañana (M4), 2 de tarde (T4) y 2 de noche (N4), y el resto a la T2. MT4 va aparte. Las cifras se cambian en **Ajustes**. Quien ya está en T4 sigue en T4 mientras dura su bloque. Para cubrir los huecos se elige a quien menos T4 ha hecho en las últimas 4 semanas, así el reparto queda equilibrado.
+- **Fecha de alta:** se toma del primer día con datos de cada persona en el Excel, y se puede cambiar en **Personal**. Antes de esa fecha no se le ponen turnos, y si empezó durante el año su cupo de vacaciones es proporcional (por ejemplo, alta el 5 de octubre con 23 días de cupo da 6 días).
 - **Guardias:** cambian cada semana, de lunes a domingo.
 - **Totales:** HT son los días trabajados más las bajas, como en el Excel original. Horas = HT × 8.
 

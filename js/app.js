@@ -22,7 +22,7 @@
   const defaults = () => ({
     people: [], history: {}, overrides: {}, holidays: [], genStart: null,
     settings: { t4Target: { M: 3, T: 2, N: 2 }, hoursPerShift: 8, guardLetters: ['M', 'C'], vacQuota: 23, maxVac: { M: 3, T: 2, N: 2 } },
-    view: null, sourceMonths: [], holidaysVersion: HOLIDAYS_VERSION, quotaVersion: 2,
+    view: null, sourceMonths: [], holidaysVersion: HOLIDAYS_VERSION, quotaVersion: 2, startVersion: 2,
   });
   // Festivos oficiales de la Comunidad de Madrid (regionales + locales de Madrid capital).
   // 2027: Decreto 82/2026 (BOCM 01/10/2026); locales: San Isidro y la Almudena.
@@ -39,6 +39,17 @@
       s.holidaysVersion = HOLIDAYS_VERSION;
     }
     // El cupo por defecto pasó de 22 a 23 días (cupo real de la plantilla)
+    // Fechas de alta deducidas del historial ya importado (primer día con datos)
+    if ((s.startVersion || 1) < 2) {
+      let min = Infinity;
+      for (const pid in s.history || {}) for (const iso in s.history[pid]) min = Math.min(min, E.dnOfIso(iso));
+      (s.people || []).forEach((p) => {
+        if (p.startDate || !s.history || !s.history[p.id]) return;
+        const isos = Object.keys(s.history[p.id]).sort();
+        if (isos.length && E.dnOfIso(isos[0]) > min + 9) p.startDate = isos[0];
+      });
+      s.startVersion = 2;
+    }
     if ((s.quotaVersion || 1) < 2) { if (s.settings.vacQuota == null || s.settings.vacQuota === 22) s.settings.vacQuota = 23; s.quotaVersion = 2; }
     return s;
   }
@@ -48,7 +59,7 @@
       const raw = localStorage.getItem(KEY);
       if (raw) {
         const s = JSON.parse(raw); const d = defaults();
-        const st = migrate({ ...d, holidaysVersion: 1, quotaVersion: 1, ...s, settings: { ...d.settings, ...s.settings, t4Target: { ...d.settings.t4Target, ...(s.settings || {}).t4Target }, maxVac: { ...d.settings.maxVac, ...(s.settings || {}).maxVac } } });
+        const st = migrate({ ...d, holidaysVersion: 1, quotaVersion: 1, startVersion: 1, ...s, settings: { ...d.settings, ...s.settings, t4Target: { ...d.settings.t4Target, ...(s.settings || {}).t4Target }, maxVac: { ...d.settings.maxVac, ...(s.settings || {}).maxVac } } });
         try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) { /* sin almacenamiento */ }
         return st;
       }
@@ -279,7 +290,7 @@
       body.append(el('tr', { class: 'section s-' + g }, el('th', { colspan: cols.length, text: `${E.GROUP_NAMES[g]}${rot.length ? ` · media T4 ${avg.toFixed(0)} %` : ''}` })));
       gr.forEach((r) => {
         const { quota, left } = r;
-        const qi = el('input', { type: 'number', min: 0, max: 60, value: quota, class: 'qin' + (r.p.vacQuota != null ? ' custom' : ''), 'aria-label': `Cupo de ${r.p.name}` });
+        const qi = el('input', { type: 'number', min: 0, max: 60, value: r.quotaBase, class: 'qin' + (r.p.vacQuota != null ? ' custom' : ''), 'aria-label': `Cupo de ${r.p.name}` });
         qi.addEventListener('change', () => {
           const v = parseInt(qi.value, 10);
           if (!Number.isFinite(v) || v === quotaDef) delete r.p.vacQuota; else r.p.vacQuota = v;
@@ -289,12 +300,13 @@
         const off = !isLv && Math.abs(r.pct - avg) > 10;
         const bar = el('span', { class: 'bar' }, el('i', { style: `width:${Math.min(100, r.pct).toFixed(0)}%` }));
         body.append(el('tr', null,
-          el('td', null, r.p.name, isLv ? el('small', { class: 'tag', text: 'L-V' }) : null),
+          el('td', null, r.p.name, isLv ? el('small', { class: 'tag', text: 'L-V' }) : null,
+            r.joined != null ? el('small', { class: 'tag alta', text: `alta ${fmt(r.joined)}`, title: 'Empezó este año: el cupo de vacaciones es proporcional' }) : null),
           el('td', { class: 'num', text: r.s.work }),
           el('td', { class: 'num', text: r.s.horasTrab }),
           el('td', { class: 'num muted', text: r.s.horas }),
           el('td', { class: 'num', text: r.s.v }),
-          el('td', null, qi),
+          el('td', { class: 'nowrap' }, qi, r.joined != null ? el('small', { class: 'prop', text: `→ ${quota}`, title: `Proporcional desde el ${fmt(r.joined)}` }) : null),
           el('td', { class: 'num ' + (left < 0 ? 'neg' : left <= 3 ? 'low' : ''), text: left }),
           el('td', { class: 'num', text: r.s.b }),
           el('td', { class: 'num', text: r.s.p }),
@@ -368,12 +380,18 @@
     for (let n = fromDn; n < fromDn + 9; n++) if (E.mod(n - E.REF - p.phase, 9) === 0) return n;
     return fromDn;
   }
+  // Fecha de alta: antes de ella no se le ponen turnos y el cupo de vacaciones es proporcional
+  function altaInput(p) {
+    const inp = el('input', { type: 'date', value: p.startDate || '', 'aria-label': `Alta de ${p.name}`, title: 'Primer día en plantilla (vacío = desde siempre)' });
+    inp.addEventListener('change', () => { if (inp.value) p.startDate = inp.value; else delete p.startDate; save(); toast(`Alta de ${p.name} actualizada`); });
+    return inp;
+  }
   function renderStaff(y, m) {
     const from = E.dn(y, m, 1);
-    const head = el('thead', null, el('tr', null, ['Nombre', 'Turno', 'Tipo', 'Primer día libre / turno fijo', 'Terminal', 'Activo', ''].map((h) => el('th', { text: h }))));
+    const head = el('thead', null, el('tr', null, ['Nombre', 'Turno', 'Tipo', 'Primer día libre / turno fijo', 'Terminal', 'Alta', 'Activo', ''].map((h) => el('th', { text: h }))));
     const body = el('tbody');
     for (const g of E.GROUPS) {
-      body.append(el('tr', { class: 'section s-' + g }, el('th', { colspan: 7, text: E.GROUP_NAMES[g] })));
+      body.append(el('tr', { class: 'section s-' + g }, el('th', { colspan: 8, text: E.GROUP_NAMES[g] })));
       state.people.filter((p) => p.group === g).forEach((p) => {
         const upd = (fn) => () => { fn(); save(); renderStaff(y, m); };
         const name = el('input', { type: 'text', value: p.name, 'aria-label': 'Nombre' });
@@ -407,7 +425,7 @@
         });
         const del = el('button', { class: 'icon danger-text', title: 'Eliminar', 'aria-label': 'Eliminar', text: '✕' });
         del.addEventListener('click', () => { if (confirm(`¿Eliminar a ${p.name}? Se borran también sus cambios manuales.`)) { state.people = state.people.filter((x) => x !== p); delete state.overrides[p.id]; save(); renderStaff(y, m); } });
-        body.append(el('tr', null, el('td', null, name), el('td', null, grp), el('td', null, typ), el('td', null, detail), el('td', null, term), el('td', { class: 'center' }, act),
+        body.append(el('tr', null, el('td', null, name), el('td', null, grp), el('td', null, typ), el('td', null, detail), el('td', null, term), el('td', null, altaInput(p)), el('td', { class: 'center' }, act),
           el('td', { class: 'nowrap' }, el('button', { class: 'icon', title: 'Subir', 'aria-label': 'Subir', text: '↑', onclick: move(-1) }), el('button', { class: 'icon', title: 'Bajar', 'aria-label': 'Bajar', text: '↓', onclick: move(1) }), del)));
       });
     }
@@ -419,7 +437,8 @@
     // Fase libre: la menos usada en mañana para equilibrar
     const used = state.people.filter((p) => p.group === 'M' && p.type === 'rot').map((p) => p.phase);
     let phase = 0, min = 1e9; for (let ph = 0; ph < 9; ph++) { const c = used.filter((x) => x === ph).length; if (c < min) { min = c; phase = ph; } }
-    state.people.push({ id, name: name.trim(), group: 'M', type: 'rot', phase, fixedCode: '', fixedTerminal: '', active: true });
+    const { y, m } = currentView();
+    state.people.push({ id, name: name.trim(), group: 'M', type: 'rot', phase, fixedCode: '', fixedTerminal: '', active: true, startDate: E.isoOf(E.dn(y, m, 1)) });
     save(); render(); toast('Añadida. Ajusta su turno y su primer día libre.');
   });
 
@@ -548,7 +567,11 @@
         if (Object.keys(keep).length) s.overrides[p.id] = keep;
       });
       // Conservar cupos de vacaciones personalizados
-      r.people.forEach((p) => { const o = state.people.find((x) => x.id === p.id); if (o && o.vacQuota != null) p.vacQuota = o.vacQuota; });
+      r.people.forEach((p) => {
+        const o = state.people.find((x) => x.id === p.id); if (!o) return;
+        if (o.vacQuota != null) p.vacQuota = o.vacQuota;
+        if (!p.startDate && o.startDate) p.startDate = o.startDate;
+      });
       s.holidays = [...new Set([...(state.holidays || []), ...r.holidays, ...defaultHolidays()])].sort();
       s.holidaysVersion = HOLIDAYS_VERSION;
       // En una reimportación se queda en el mes y la pestaña que se estaban viendo
@@ -580,7 +603,7 @@
   });
   $('#importJson').addEventListener('change', async (e) => {
     const f = e.target.files[0]; e.target.value = ''; if (!f) return;
-    try { const s = JSON.parse(await f.text()); if (!Array.isArray(s.people)) throw new Error('formato'); state = migrate({ ...defaults(), holidaysVersion: 1, quotaVersion: 1, ...s, settings: { ...defaults().settings, ...s.settings } }); save(); render(); toast('Copia restaurada'); }
+    try { const s = JSON.parse(await f.text()); if (!Array.isArray(s.people)) throw new Error('formato'); state = migrate({ ...defaults(), holidaysVersion: 1, quotaVersion: 1, startVersion: 1, ...s, settings: { ...defaults().settings, ...s.settings } }); save(); render(); toast('Copia restaurada'); }
     catch (err) { alert('Ese archivo no es una copia válida.'); }
   });
   $('#resetAll').addEventListener('click', () => { if (confirm('¿Borrar toda la plantilla, ausencias y ajustes de este navegador?')) { state = defaults(); save(); tab = 'cuadrante'; render(); } });
