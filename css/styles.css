@@ -257,3 +257,7 @@ table.summary { min-width: 1100px; }
 table.summary th { white-space: nowrap; }
 table.summary tfoot th, table.summary tfoot td { font-weight: 700; border-top: 2px solid var(--line); border-bottom: none; }
 table.summary td.num.muted { color: var(--muted); }
+
+.notice { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; background: #fff4d6; color: #5c4400; border: 1px solid #f0d58a; border-radius: 10px; padding: 10px 12px; margin: 0 0 12px; font-size: 13px; }
+.file-btn.small { padding: 5px 10px; font-size: 13px; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .notice { background: #3a3015; color: #f3dc9a; border-color: #6b5620; } }

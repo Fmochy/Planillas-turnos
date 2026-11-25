@@ -256,7 +256,9 @@
     // Desde cuándo hay datos
     let first = state.genStart;
     for (const pid in state.history) for (const iso in state.history[pid]) first = Math.min(first, E.dnOfIso(iso));
-    $('#sumNote').textContent = first > E.dn(y, 0, 1) ? `Ojo: solo hay datos desde el ${fmt(first)}. Lo anterior no está en la web, así que las vacaciones gastadas antes de esa fecha no se cuentan.` : '';
+    const missing = first > E.dn(y, 0, 1);
+    $('#sumNoteBox').classList.toggle('hidden', !missing);
+    $('#sumNote').textContent = missing ? `Solo hay datos desde el ${fmt(first)}, así que lo anterior (vacaciones, bajas, horas…) no se cuenta. Si tu Excel tiene los meses anteriores de ${y}, vuelve a importarlo y se cargará el año completo; lo marcado en la web después del Excel se conserva.` : '';
     const rows = E.yearSummary(state, sched, y);
     const cols = [
       ['Persona', ''], ['Días trab.', 'Días trabajados'], ['Horas trab.', 'Horas realmente trabajadas'],
@@ -549,8 +551,10 @@
       r.people.forEach((p) => { const o = state.people.find((x) => x.id === p.id); if (o && o.vacQuota != null) p.vacQuota = o.vacQuota; });
       s.holidays = [...new Set([...(state.holidays || []), ...r.holidays, ...defaultHolidays()])].sort();
       s.holidaysVersion = HOLIDAYS_VERSION;
-      const f = E.fromDn(r.genStart); s.view = { y: f.y, m: f.m };
-      state = s; save(); tab = 'cuadrante'; render();
+      // En una reimportación se queda en el mes y la pestaña que se estaban viendo
+      const first = !state.people.length;
+      const f = E.fromDn(r.genStart); s.view = first || !state.view ? { y: f.y, m: f.m } : state.view;
+      state = s; save(); if (first) tab = 'cuadrante'; render();
       const lv = r.people.filter((p) => p.type === 'lv').length;
       toast(`Importadas ${r.people.length} personas (${lv} L-V) (${r.sourceMonths.length} meses: ${r.sourceMonths[0]} – ${r.sourceMonths[r.sourceMonths.length - 1]}). Revisa la pestaña Personal.`);
     } catch (err) {
